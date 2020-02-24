@@ -1,0 +1,9 @@
+bin
+/build
+etc/build/*min.js
+classes
+node_modules
+.idea
+.vscode
+cache.manifest
+src/main/node/config/users.json
