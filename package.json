@@ -11,6 +11,12 @@
   "license": "ISC",
   "dependencies": {
     "chart.js": "^2.9.3",
-    "crawler": "^1.2.1"
+    "crawler": "^1.2.1",
+    "kcors": "^2.2.2",
+    "koa": "^2.11.0",
+    "koa-body": "^4.1.1",
+    "koa-mount": "^4.0.0",
+    "koa-router": "^7.4.0",
+    "koa-static": "^5.0.0"
   }
 }
