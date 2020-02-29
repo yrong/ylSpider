@@ -1,9 +1,12 @@
 const Crawler = require("crawler")
+let monthly_data = [];
 
-const gather = async ()=>{
+const gather = async (force)=>{
     return new Promise((resolve,reject)=>{
-        let monthly_data = []
-
+        if(!force&&monthly_data.length){
+            resolve(monthly_data)
+            return;
+        }
         let nifa_crawler = new Crawler({
             maxConnections : 1,
             callback : function (error,response,done) {
