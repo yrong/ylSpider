@@ -3,7 +3,9 @@ const koaBody = require('koa-body')
 const cors = require('kcors')
 const statics = require('koa-static')
 const app = module.exports = new Koa()
-const route = require('./route')
+const Router = require('koa-router')
+const router = new Router()
+const apis = require('./route')
 
 app.use(cors())
 app.use(koaBody({
@@ -32,7 +34,8 @@ app.use(async function(ctx, next) {
     }
 });
 
-route(app);
+router.use('/api', apis.routes(), apis.allowedMethods());
+app.use(router.routes());
 
 if (!module.parent) app.listen(8080,async ()=>{
     console.log('server started!')

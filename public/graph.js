@@ -14,7 +14,7 @@ let lineChartData = {
 };
 
 window.onload = function() {
-    $.get("/monthly", function(data) {
+    $.get("/api/monthly", function(data) {
         let total = data.map((month)=>month.total).reverse()
         lineChartData.datasets[0].label = '累计借贷金额(万元)';
         lineChartData.datasets[0].data = total;
