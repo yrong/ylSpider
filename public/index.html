@@ -19,21 +19,20 @@
 <body>
     <div style="width:100%;height:100%;">
         <canvas id="canvas"></canvas>
+        <select id="dimension">
+            <option value="total">累计借贷金额(万元)</option>
+            <option value="total_loan_num">累计借贷笔数(笔)</option>
+            <option value="total_borrow_num">累计出借笔数(笔)</option>
+            <option value="curr_loan">借贷余额(万元)</option>
+            <option value="curr_loan_num">借贷余额笔数(笔)</option>
+            <option value="total_borrower_num">累计出借人数量(人)</option>
+            <option value="total_loaner_num">累计借款人数量(人)</option>
+            <option value="curr_borrower_num">当前出借人数量(人)</option>
+            <option value="curr_loaner_num">当前借款人数量(人)</option>
+            <option value="total_pay">累计代偿金额(万元)</option>
+            <option value="total_pay_num">累计代偿笔数(笔)</option>
+        </select>
     </div>
-    <select id="dimension">
-        <option value="total">累计借贷金额(万元)</option>
-        <option value="total_loan_num">累计借贷笔数(笔)</option>
-        <option value="total_borrow_num">累计出借笔数(笔)</option>
-        <option value="curr_loan">借贷余额(万元)</option>
-        <option value="curr_loan_num">借贷余额笔数(笔)</option>
-        <option value="total_borrower_num">累计出借人数量(人)</option>
-        <option value="total_loaner_num">累计借款人数量(人)</option>
-        <option value="curr_borrower_num">当前出借人数量(人)</option>
-        <option value="curr_loaner_num">当前借款人数量(人)</option>
-        <option value="total_pay">累计代偿金额(万元)</option>
-        <option value="total_pay_num">累计代偿笔数(笔)</option>
-    </select>
-
     <script src="graph.js"></script>
 </body>
 
