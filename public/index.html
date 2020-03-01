@@ -4,21 +4,16 @@
 <head>
     <title>有利月度数据分析表</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="main.css">
+    <link rel="manifest" href="/manifest.json">
     <script src="jquery-3.4.1.min.js"></script>
     <script src="Chart.bundle.js"></script>
     <script src="utils.js"></script>
-    <style>
-        canvas {
-            -moz-user-select: none;
-            -webkit-user-select: none;
-            -ms-user-select: none;
-        }
-    </style>
 </head>
 
-<body>
-    <div style="width:100%;height:100%;">
-        <canvas id="canvas"></canvas>
+<body class="fullscreen">
+    <div class="container">
+        <canvas id="canvas" width="640" height="480"></canvas>
         <select id="dimension">
             <option value="total">累计借贷金额(万元)</option>
             <option value="total_loan_num">累计借贷笔数(笔)</option>

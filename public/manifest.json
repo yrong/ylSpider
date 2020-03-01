@@ -1,0 +1,9 @@
+{
+  "name": "有利统计表",
+  "short_name": "有利统计表",
+  "lang": "zh-CN",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "white",
+  "theme_color": "black"
+}
