@@ -1,6 +1,7 @@
 const Crawler = require("crawler")
 const { Client } = require('@elastic/elasticsearch')
 const client = new Client({ node: `http://${process.env['ES_HOST']||'localhost'}:9200` })
+const cron = require('node-cron')
 
 const crawl = ()=>{
     return new Promise((resolve,reject)=>{
@@ -84,10 +85,12 @@ const gather = async ()=>{
     })
 }
 
-gather().then((data)=>{
-    console.log('gather success')
-}).catch((err)=>{
-    console.log(err)
-})
+cron.schedule('0 2 * * *', function(){
+    gather().then((data)=>{
+        console.log('gather success')
+    }).catch((err)=>{
+        console.log(err)
+    })
+});
 
 module.exports = {gather}
