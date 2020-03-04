@@ -1,9 +1,10 @@
 const Crawler = require("crawler")
-let monthly_data = [];
+let monthly_data;
+const maxNum = 20;
 
-const gather = async (force)=>{
+const gather = async (refresh)=>{
     return new Promise((resolve,reject)=>{
-        if(!force&&monthly_data.length){
+        if(!refresh&&monthly_data&&monthly_data.length){
             resolve(monthly_data)
             return;
         }
@@ -13,14 +14,25 @@ const gather = async (force)=>{
                 if(error) {
                     reject(error)
                 }
+                monthly_data = []
                 let $ = response.$;
+                let findDeprecatedRows = ()=>{
+                    let rows = $("div#trade-log table.left-table1 tr:not(:first-child)"),deprecated=[];
+                    rows.each(function(index){
+                        if($(this).find('td.scrap_date').length){
+                            deprecated.push(index)
+                        }
+                    })
+                    return deprecated
+                }
+                let deprecated = findDeprecatedRows();
                 let rows = $("div#trade-log table.right-table tr:not(:first-child)"),row,col;
                 rows.each(function(row_index){
                     row = {}
-                    if(row_index === 2){
+                    if(deprecated.includes(row_index)){
                         return;
                     }
-                    if(row_index>20){
+                    if(row_index>maxNum){
                         return false;
                     }
                     $(this).find('td').each(function(index) {
