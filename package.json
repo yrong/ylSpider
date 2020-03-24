@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js",
+    "download_contracts": "node puppeteer.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
     "koa-router": "^7.4.0",
     "koa-static": "^5.0.0",
     "moment": "^2.24.0",
-    "node-cron": "^2.0.3"
+    "node-cron": "^2.0.3",
+    "puppeteer": "^2.1.1"
   }
 }
