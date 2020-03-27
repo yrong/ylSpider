@@ -2,31 +2,56 @@
 <html>
 
 <head>
-    <title>有利月度数据分析表</title>
+    <title>有利数据分析表</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="bootstrap.min.css">
     <link rel="stylesheet" href="main.css">
     <link rel="manifest" href="/manifest.json">
     <script src="jquery-3.4.1.min.js"></script>
+    <script src="bootstrap.bundle.min.js"></script>
     <script src="Chart.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
     <script src="utils.js"></script>
 </head>
 
-<body class="fullscreen">
-    <div class="container">
-        <canvas id="canvas" height="480"></canvas>
-        <select id="dimension">
-            <option value="curr_loan">借贷余额(万元)</option>
-            <option value="curr_borrower_num">当前出借人数量(人)</option>
-            <option value="curr_loaner_num">当前借款人数量(人)</option>
-            <option value="total_pay">累计代偿金额(万元)</option>
-            <option value="total_pay_num">累计代偿笔数(笔)</option>
-            <option value="total">累计借贷金额(万元)</option>
-            <!--option value="total_loan_num">累计借贷笔数(笔)</option>
-            <option value="total_borrow_num">累计出借笔数(笔)</option>
-            <option value="curr_loan_num">借贷余额笔数(笔)</option>
-            <option value="total_borrower_num">累计出借人数量(人)</option>
-            <option value="total_loaner_num">累计借款人数量(人)</option-->
-        </select>
+<body>
+    <div class="container-fluid">
+
+
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#nifa">互金信批数据</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#yooli">官网成交数据</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane active" id="nifa">
+                <canvas id="nifa_canvas"></canvas>
+                <select id="nifa_dimension">
+                    <option value="curr_loan">借贷余额(万元)</option>
+                    <option value="curr_borrower_num">当前出借人数量(人)</option>
+                    <option value="curr_loaner_num">当前借款人数量(人)</option>
+                    <option value="total_pay">累计代偿金额(万元)</option>
+                    <option value="total_pay_num">累计代偿笔数(笔)</option>
+                    <option value="total">累计借贷金额(万元)</option>
+                    <!--option value="total_loan_num">累计借贷笔数(笔)</option>
+                    <option value="total_borrow_num">累计出借笔数(笔)</option>
+                    <option value="curr_loan_num">借贷余额笔数(笔)</option>
+                    <option value="total_borrower_num">累计出借人数量(人)</option>
+                    <option value="total_loaner_num">累计借款人数量(人)</option-->
+                </select>
+            </div>
+            <div class="tab-pane" id="yooli">
+                <canvas id="yooli_canvas"></canvas>
+                <select id="yooli_dimension">
+                    <option value="total_loan_money">累计借贷金额</option>
+                    <option value="cur_borrow_users">当前借款人数量(人)</option>
+                </select>
+            </div>
+        </div>
     </div>
     <script src="graph.js"></script>
 </body>

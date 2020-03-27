@@ -20,6 +20,7 @@ app.use(koaBody({
 }));
 
 app.use((statics('./public')))
+app.use((statics('./download')))
 
 app.use(async function(ctx, next) {
     try {
