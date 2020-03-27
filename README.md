@@ -36,8 +36,3 @@ npm run start//启动web服务,访问http://localhost:8080页面可查看互金�
 npm run cron//每日采集官网出借数据并存储到elasticsearch
 npm run download//一键下载合同
 ```
-
-### 
-```
-npm run start
-```
