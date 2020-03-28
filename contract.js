@@ -1,20 +1,22 @@
 'use strict';
 
-const contract = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp')
 const jsonfile = require('jsonfile')
 const log = require('simple-node-logger').createSimpleLogger('download.log');
+require('dotenv').config()
 
-let browser,page,ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],ChromeDownloadDatePath
+let browser,page,ChromeDownloadDatePath,ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
+    ChromeBinPath = process.env['CHROME_BIN_PATH']
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 const init = async ()=>{
-    browser = await contract.launch({headless: false,  slowMo: 50});
+    browser = await puppeteer.launch({headless: false,  slowMo: 50,executablePath:ChromeBinPath});
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(0);
     ChromeDownloadDatePath = path.resolve('./download',new Date().toISOString().replace(/(T.+)/,''))
