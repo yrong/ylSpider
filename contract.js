@@ -109,10 +109,10 @@ const downloadContractsInPlan = async (plan,contractLinks)=>{
     for(let contractLink of contractLinks){
         try{
             await page.goto("https://www.yooli.com" + contractLink)
-            await sleep(2000);
+            await sleep(500);
             log.info(`{plan:${plan},link:${contractLink}} download success`)
         }catch(e){//just ignore
-            await sleep(2000);
+            await sleep(500);
             if(e.message.startsWith('net::ERR_ABORTED')){
                 log.info(`{plan:${plan},link:${contractLink}} download success`)
             }else{

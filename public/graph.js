@@ -75,17 +75,17 @@ const yooliLineChart = ()=>{
             let dateData = data.results.map((result)=>{
                 return moment(result.create_date)
             })
-            let total_loan_money = data.results.map((result)=>result.total_loan_money)
+            let total_money = data.results.map((result)=>result.total_money)
             let config = {
                 type: 'line',
                 data: {
                     labels: dateData,
                     datasets: [{
-                        label: '累计借贷金额',
+                        label: '交易总额',
                         backgroundColor: color(window.chartColors.red).alpha(0.5).rgbString(),
                         borderColor: window.chartColors.red,
                         fill: false,
-                        data: total_loan_money,
+                        data: total_money
                     }]
                 },
                 options: {

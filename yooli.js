@@ -16,6 +16,8 @@ const gather = ()=>{
                     let $ = res.$;
                     let total_money = parseInt($("div.da_center dl.dac_dl1 dt span").text().substr(1).replace(/,/g,''))
                     daily_data.total_money = total_money//交易总额
+                    let total_borrow_users = parseInt($("div.da_center dl:nth-child(2) dt span").text().replace(/,/g,''))
+                    daily_data.total_borrow_users = total_borrow_users//出借人总数
                     let total_loan_money = parseInt($(".loan_data.second dl dt[data-selector='total_loan_money']").text().replace(/,/g,''));
                     daily_data.total_loan_money = total_loan_money//累计借贷金额
                     let cur_borrow_users = parseInt($(".loan_data.second dl dt[data-selector='cur_borrow_users']").text().replace(/,/g,''));
