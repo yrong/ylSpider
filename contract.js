@@ -147,8 +147,10 @@ const downloadContracts = async (plans)=>{
         let contracts = await getContractsInPlan(plan)
         let plan_contract = {plan,contracts}
         plan_contract_array.push(plan_contract)
-        await downloadContractsInPlan(plan,contracts)
-        await moveFiles(plan)
+        if(process.env['MetaOnly']!='true'){
+            await downloadContractsInPlan(plan,contracts)
+            await moveFiles(plan)
+        }
     }
     jsonfile.writeFileSync(ChromeDownloadDatePath + '/contracts.json', plan_contract_array, { spaces: 2 })
 }
