@@ -7,7 +7,7 @@
     "init": "node init.js",
     "start": "node main.js",
     "cron": "node cron.js",
-    "download": "node contract.js"
+    "download": "node download.js"
   },
   "keywords": [],
   "author": "",

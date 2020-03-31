@@ -8,15 +8,18 @@ const jsonfile = require('jsonfile')
 const log = require('simple-node-logger').createSimpleLogger('download.log');
 require('dotenv').config()
 
-let browser,page,ChromeDownloadDatePath,ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
-    ChromeBinPath = process.env['CHROME_BIN_PATH']
+let browser,page,ChromeDownloadDatePath,
+    ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
+    ChromeBinPath = process.env['CHROME_BIN_PATH'],
+    ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
+    MetaOnly = (process.env['MetaOnly']=='true')
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 const init = async ()=>{
-    browser = await puppeteer.launch({headless: false,  slowMo: 50,executablePath:ChromeBinPath});
+    browser = await puppeteer.launch({headless: ChromeHeadlessMode,  slowMo: 50,executablePath:ChromeBinPath});
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(0);
     ChromeDownloadDatePath = path.resolve('./download',new Date().toISOString().replace(/(T.+)/,''))
@@ -86,7 +89,7 @@ const getContractsInPlan = async(plan)=>{
     let getContractLinkInPage = async ()=>{
         return await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
-                return a.pathname + a.search
+                return a.href
             })});
     }
     let contractLinks = await getContractLinkInPage()
@@ -99,8 +102,7 @@ const getContractsInPlan = async(plan)=>{
         }catch(e){
         }
     }
-    log.info(`success to get contract url in plan ${plan} with contract links:
-    ${contractLinks}`)
+    log.info(`success to get contract url in plan ${plan} with contract links:${JSON.stringify(contractLinks)}`)
     return contractLinks
 }
 
@@ -108,7 +110,7 @@ const downloadContractsInPlan = async (plan,contractLinks)=>{
     log.info('start to download contract in plan ',plan)
     for(let contractLink of contractLinks){
         try{
-            await page.goto("https://www.yooli.com" + contractLink)
+            await page.goto(contractLink)
             await sleep(500);
             log.info(`{plan:${plan},link:${contractLink}} download success`)
         }catch(e){//just ignore
@@ -147,7 +149,7 @@ const downloadContracts = async (plans)=>{
         let contracts = await getContractsInPlan(plan)
         let plan_contract = {plan,contracts}
         plan_contract_array.push(plan_contract)
-        if(process.env['MetaOnly']!='true'){
+        if(!MetaOnly){
             await downloadContractsInPlan(plan,contracts)
             await moveFiles(plan)
         }
@@ -155,10 +157,14 @@ const downloadContracts = async (plans)=>{
     jsonfile.writeFileSync(ChromeDownloadDatePath + '/contracts.json', plan_contract_array, { spaces: 2 })
 }
 
-(async() => {
+const download = async ()=>{
     await init()
     await login()
     let plans = await getPlans();
     await downloadContracts(plans)
     await browser.close();
-})();
+}
+
+module.exports = {download}
+
+
