@@ -10,8 +10,9 @@
     <script src="jquery-3.4.1.min.js"></script>
     <script src="bootstrap.bundle.min.js"></script>
     <script src="Chart.bundle.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+    <script src="moment.min.js"></script>
     <script src="utils.js"></script>
+    <script src="spin.umd.js"></script>
 </head>
 
 <body>
@@ -24,6 +25,9 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-toggle="tab" href="#yooli">官网成交数据</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#contract">官网合同下载</a>
             </li>
         </ul>
 
@@ -51,9 +55,37 @@
                     <option value="total_borrow_users">出借人数量</option>
                 </select>
             </div>
+            <div class="tab-pane" id="contract">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-sm-9 col-md-7 col-lg-5 mx-auto">
+                            <div class="card card-signin my-5">
+                                <div class="card-body">
+                                    <h5 class="card-title text-center">下载合同</h5>
+                                    <form class="form-signin">
+                                        <div class="form-label-group">
+                                            <input type="text" id="username" class="form-control" placeholder="用户名" required autofocus>
+                                            <label for="username">用户名</label>
+                                        </div>
+
+                                        <div class="form-label-group">
+                                            <input type="password" id="passwd" class="form-control" placeholder="密码" required>
+                                            <label for="passwd">密码</label>
+                                        </div>
+
+
+                                        <button class="btn btn-lg btn-primary btn-block text-uppercase" id="downloadContract" type="submit">下载</button>
+
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <script src="graph.js"></script>
+    <script src="main.js"></script>
 </body>
 
 </html>

@@ -8,11 +8,12 @@ const jsonfile = require('jsonfile')
 const log = require('simple-node-logger').createSimpleLogger('download.log');
 require('dotenv').config()
 
-let browser,page,ChromeDownloadDatePath,
+let browser,page,downloadPath,dateUrlPath,
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
     ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
-    MetaOnly = (process.env['MetaOnly']=='true')
+    MetaOnly = (process.env['MetaOnly']=='true'),
+    PlanID = process.env['PlanID']
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -22,11 +23,12 @@ const init = async ()=>{
     browser = await puppeteer.launch({headless: ChromeHeadlessMode,  slowMo: 50,executablePath:ChromeBinPath});
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(0);
-    ChromeDownloadDatePath = path.resolve('./download',new Date().toISOString().replace(/(T.+)/,''))
-    await mkdirp(ChromeDownloadDatePath)
+    dateUrlPath = `/download/${new Date().toISOString().replace(/(T.+)/,'')}`
+    downloadPath = path.resolve("." + dateUrlPath)
+    await mkdirp(downloadPath)
 }
 
-const login = async ()=>{
+const login = async (username,passwd)=>{
     log.info('start to login')
     await page.goto('https://www.yooli.com/');
     const loginSelector = "a[href='/secure/login/'][data-hm='navigation, nav_login']";
@@ -34,8 +36,8 @@ const login = async ()=>{
     await page.click(loginSelector);
     await page.waitForSelector('#loginBt');
     log.info('to login page success')
-    await page.type('#userName', process.env['YOOLI_USER']);
-    await page.type('#password', process.env['YOOLI_PASS']);
+    await page.type('#userName', username||process.env['YOOLI_USER']);
+    await page.type('#password', passwd||process.env['YOOLI_PASS']);
     await page.click('#checkWeekly')
     await page.click('#loginBt')
     const userSelector = "a[href='/userAccount.session.action']";
@@ -127,7 +129,7 @@ const downloadContractsInPlan = async (plan,contractLinks)=>{
 
 const moveFiles = async (plan)=>{
     log.info('start to move download files for plan ',plan)
-    const PlanPath = ChromeDownloadDatePath + "/" + plan
+    const PlanPath = downloadPath + "/" + plan
     try{
         fs.mkdirSync(PlanPath)
     }catch(e) {
@@ -145,6 +147,9 @@ const moveFiles = async (plan)=>{
 
 const downloadContracts = async (plans)=>{
     let plan_contract_array = []
+    if(PlanID){
+        plans = plans.filter(plan=>plan==PlanID)
+    }
     for(let plan of plans){
         let contracts = await getContractsInPlan(plan)
         let plan_contract = {plan,contracts}
@@ -154,15 +159,16 @@ const downloadContracts = async (plans)=>{
             await moveFiles(plan)
         }
     }
-    jsonfile.writeFileSync(ChromeDownloadDatePath + '/contracts.json', plan_contract_array, { spaces: 2 })
+    jsonfile.writeFileSync(downloadPath + '/contracts.json', plan_contract_array, { spaces: 2 })
 }
 
-const download = async ()=>{
+const download = async (username,passwd)=>{
     await init()
-    await login()
+    await login(username,passwd)
     let plans = await getPlans();
     await downloadContracts(plans)
     await browser.close();
+    return dateUrlPath + '/contracts.json'
 }
 
 module.exports = {download}

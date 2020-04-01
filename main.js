@@ -2,6 +2,7 @@ const Koa = require('koa')
 const koaBody = require('koa-body')
 const cors = require('kcors')
 const statics = require('koa-static')
+const staticFolder = require('koa-static-folder')
 const app = module.exports = new Koa()
 const Router = require('koa-router')
 const router = new Router()
@@ -20,7 +21,7 @@ app.use(koaBody({
 }));
 
 app.use((statics('./public')))
-app.use((statics('./download')))
+app.use((staticFolder('./download')))
 
 app.use(async function(ctx, next) {
     try {
@@ -29,6 +30,9 @@ app.use(async function(ctx, next) {
         const ms = new Date() - start
         console.log('%s %s - %s ms', ctx.method,ctx.originalUrl, ms)
     } catch (error) {
+        if(ctx.path.includes('contract')&&router.downloading){
+            router.downloading = false
+        }
         ctx.status = error.status || 500;
         ctx.body = error.message||error;
         console.error('%s %s - %s', ctx.method,ctx.originalUrl, error.stack || error)

@@ -1,4 +1,3 @@
-
 const nifaLineChart = ()=>{
     const labels = ['2020-2','2020-1', '2019-12', '2019-11', '2019-10', '2019-9', '2019-8', '2019-7',
         '2019-6','2019-5','2019-4','2019-3','2019-2','2019-1','2018-12','2018-11',
@@ -127,7 +126,40 @@ const yooliLineChart = ()=>{
     });
 }
 
+function download(url) {
+    let element = document.createElement('a');
+    element.setAttribute('href', url);
+    element.setAttribute('download', 'contracts.json');
+    document.body.appendChild(element);
+    element.click();
+    setTimeout(function() {
+        URL.revokeObjectURL(element.href);
+    }, 0);
+    document.body.removeChild(element);
+}
+
+const initDownloadAction = ()=>{
+    $('#downloadContract').click((evt)=>{
+        evt.stopPropagation()
+        let username = $('#username').val()
+        let passwd = $('#passwd').val()
+        let spinner = new Spin.Spinner().spin(document.getElementById('contract'));
+        $('#downloadContract').attr("disabled", true);
+        $.post('/api/contract',{username,passwd}).done((url)=>{
+            spinner.stop();
+            $('#downloadContract').attr("disabled", false);
+            console.log('contract download success')
+            download(url)
+        }).fail((xhr)=>{
+            spinner.stop();
+            $('#downloadContract').attr("disabled", false);
+            alert(xhr.responseText)
+        })
+    })
+}
+
 window.onload = function() {
     nifaLineChart();
     yooliLineChart();
+    initDownloadAction();
 };
