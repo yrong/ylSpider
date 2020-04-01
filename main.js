@@ -2,7 +2,7 @@ const Koa = require('koa')
 const koaBody = require('koa-body')
 const cors = require('kcors')
 const statics = require('koa-static')
-const staticFolder = require('koa-static-folder')
+const staticFolder = require('koa-static-folder-fork')
 const app = module.exports = new Koa()
 const Router = require('koa-router')
 const router = new Router()
@@ -20,9 +20,6 @@ app.use(koaBody({
     },
 }));
 
-app.use((statics('./public')))
-app.use((staticFolder('./download')))
-
 app.use(async function(ctx, next) {
     try {
         const start = new Date()
@@ -39,9 +36,17 @@ app.use(async function(ctx, next) {
     }
 });
 
+
+app.use((statics('./public')))
+app.use((staticFolder('./download')))
+
 router.use('/api', apis.routes(), apis.allowedMethods());
 app.use(router.routes());
 
 if (!module.parent) app.listen(8080,async ()=>{
     console.log('server started!')
 });
+
+process.on('uncaughtException', (err) => {
+    console.log(`Caught exception: ${err}`)
+})
