@@ -4,4 +4,6 @@ node_modules
 download.log
 download
 .env
+parse.log
+test/test.js
 

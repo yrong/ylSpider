@@ -28,6 +28,7 @@
     "mkdirp": "^1.0.3",
     "moment": "^2.24.0",
     "node-cron": "^2.0.3",
+    "pdfreader": "^1.0.6",
     "puppeteer-core": "^2.1.1",
     "simple-node-logger": "^18.12.24"
   }

@@ -8,13 +8,16 @@ const jsonfile = require('jsonfile')
 const log = require('simple-node-logger').createSimpleLogger('download.log');
 require('dotenv').config()
 
-let browser,page,dateUrlPath,downloadPath,
+let browser,page,datePath,downloadPath,
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
     ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
     MetaOnly = (process.env['MetaOnly']=='true'),
     WeixinLogin = (process.env['Weixin_Login']=='true'),
-    PlanName = process.env['PlanName']
+    PlanName = process.env['PlanName'],
+    DownloadInterval = parseInt(process.env['DownloadInterval']),
+    DownBatchSize = parseInt(process.env['DownBatchSize']),
+    DefaultTimeout = parseInt(process.env['DefaultTimeout'])
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -32,10 +35,10 @@ const init = async ()=>{
     ];
     browser = await puppeteer.launch({args, headless: ChromeHeadlessMode, slowMo: 50,executablePath:ChromeBinPath});
     page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(180000);
-    await page.setDefaultTimeout(180000)
-    dateUrlPath = `/download/${new Date().toISOString().replace(/(T.+)/,'')}`
-    downloadPath = path.resolve("." + dateUrlPath)
+    await page.setDefaultNavigationTimeout(DefaultTimeout);
+    await page.setDefaultTimeout(DefaultTimeout)
+    datePath = `/${new Date().toISOString().replace(/(T.+)/,'')}`
+    downloadPath = path.resolve("./download" + datePath)
     await mkdirp(downloadPath)
 }
 
@@ -95,10 +98,26 @@ const getPlans = async ()=>{
 
 const getContractsInPlan = async(plan)=>{
     log.info(`start to get contract url in plan ${plan.name}`)
-    const contractDownloadSelector = "a[href^='/contractDetailDownload.session.action']";
+    const contractInfoSelector = "a[href^='/dingcunbao/item']";
+    const contractDownloadSelector = "a[onclick^='downloadVerify']";
     const contractPageNumSelector = "div#planLoanListPager a:nth-last-child(2)";
+    const lendRateSelector = `div#main em#rate`
+    const lendAmountSelector = `div#main ul.items:nth-child(1) li.y_2`
+    const lendDateSelector = `div#main ul.items:nth-child(2) li.y_2`
     await page.goto(`https://www.yooli.com/userPlan/detail/${plan.id}.html`);
-    await page.waitForSelector(contractDownloadSelector);
+    await page.waitForSelector(contractInfoSelector);
+    let lendRate = await page.$eval(lendRateSelector, element => {
+        return element.innerText.split('+').reduce((total,rate)=>{
+            return total + parseFloat(rate.replace('%',''))
+        },0)
+    });
+    let lendAmount = await page.$eval(lendAmountSelector, element => {
+        return parseFloat(element.innerText.replace(',','').replace('元',''))
+    });
+    let lendDate = await page.$eval(lendDateSelector, element => {
+        return element.innerText.replace(/\./g,'-')
+    });
+    Object.assign(plan,{lendRate,lendAmount,lendDate})
     //get maxPageNum for contracts
     let maxContractPageNum = await page.$eval(contractPageNumSelector, element => {
         return element.innerText
@@ -106,17 +125,32 @@ const getContractsInPlan = async(plan)=>{
     maxContractPageNum = parseInt(maxContractPageNum)
     //get all contract links
     let getContractLinkInPage = async ()=>{
-        return await page.$$eval(contractDownloadSelector, anchors => {
+        let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
-                return a.href
+                let onclickValue = a.attributes.onclick.value,
+                    regex = /^downloadVerify\("(\d+)","(\d+)"\)$/,loanId,loaninvestorId,match
+                match = regex.exec(onclickValue)
+                if(match&&match.length==3){
+                    loanId = match[1]
+                    loaninvestorId = match[2]
+                    return `https://www.yooli.com/contractDetailDownload.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
+                }
             })});
+        let infos = await page.$$eval(contractInfoSelector, anchors => {
+            return [].map.call(anchors, a => {
+                return {name:a.innerText,infoUrl:a.href}
+            })});
+        for(let i=0;i<infos.length;i++){
+            Object.assign(infos[i],{downloadUrl:downloads[i]})
+        }
+        return infos
     }
     let contractLinks = await getContractLinkInPage()
     for(let i=2;i<=maxContractPageNum;i++){
         const pageSelector = `a[href='javascript:getFinancePlanLoanInvestorList(${i});']`
         try{
             await page.click(pageSelector)
-            await page.waitForSelector(contractDownloadSelector);
+            await page.waitForSelector(contractInfoSelector);
             contractLinks = contractLinks.concat(await getContractLinkInPage());
         }catch(e){
         }
@@ -125,71 +159,56 @@ const getContractsInPlan = async(plan)=>{
     return contractLinks
 }
 
-const downloadContractsInPlan = async (contracts)=>{
-    let cnt = 0,retryContracts = [],interval = 10000;
+const downloadContractsInPlan = async (plan,contracts)=>{
+    let cnt = 0,retryContracts = [];
     for(let contract of contracts){
         try{
-            await page.goto(contract)
-            //comes here means download fail,why?
-            log.error(`{link:${contract}} download fail,will retry`)
-            await sleep(interval);
+            await page.goto(contract.downloadUrl)
+            //comes here means download fail,curios!!
+            log.error(`{link:${contract.name}} download fail,will retry`)
+            await sleep(DownloadInterval);
         }catch(e){//just ignore
             await sleep(500);
-            cnt++;
-            if(cnt==10){
-                log.info(`just wait after download every 10 files`)
-                await sleep(interval);
-                cnt=0
-            }
             if(e.message.startsWith('net::ERR_ABORTED')){
                 //comes here means download success
-                log.info(`{link:${contract}} download success`)
+                log.info(`{link:${contract.name}} download success`)
             }else{
                 log.error(e.stack||e)
             }
+            cnt++;
+            if(cnt==DownBatchSize){
+                log.info(`just wait after download every ${DownBatchSize} files`)
+                await sleep(DownloadInterval);
+                cnt=0
+            }
         }
     }
-    await sleep(interval)
-    retryContracts = await findMissing(contracts)
+    await sleep(DownloadInterval)
+    retryContracts = await findMissingAndMoveFinished(contracts)
     if(retryContracts.length){
-        log.info(`retry contracts:${retryContracts}`)
-        await downloadContractsInPlan(retryContracts)
+        log.info(`retry contracts:${JSON.stringify(retryContracts)}`)
+        await downloadContractsInPlan(plan,retryContracts)
     }
 }
 
-const findMissing = async (contracts)=>{
-    let contractFile,contractId,match,path,missingContractLinks = []
+const findMissingAndMoveFinished = async (plan,contracts)=>{
+    let contractFile,contractId,match,filePath,missingContracts = [],PlanPath = downloadPath + "/" + plan.name
     for(let contract of contracts){
-        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract)
+        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract.downloadUrl)
         if(match&&match.length==3){
             contractId = match[1]
             contractFile = `loanagreement_${contractId}.pdf`
-            path = ChromeDownloadPath + "/" + contractFile
-            if (!fs.existsSync(path)) {
-                log.error(`${contractFile} not exist,maybe download fail,retry url ${contract}`)
-                missingContractLinks.push(contract)
-            }
-        }
-    }
-    return missingContractLinks;
-}
-
-const moveContracts = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.name,contractFile,contractId,match,path
-    for(let contract of contracts){
-        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract)
-        if(match&&match.length==3){
-            contractId = match[1]
-            contractFile = `loanagreement_${contractId}.pdf`
-            path = ChromeDownloadPath + "/" + contractFile
-            if (fs.existsSync(path)) {
-                fs.copyFileSync(path, PlanPath + "/" + contractFile)
-                fs.unlinkSync(path)
+            filePath = ChromeDownloadPath + "/" + contractFile
+            if (!fs.existsSync(filePath)) {
+                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.name}`)
+                missingContracts.push(contract)
             }else{
-                log.warn(`${contractFile} not exist,maybe url ${contract} duplicate!`)
+                fs.copyFileSync(filePath, PlanPath + "/" + contractFile)
+                fs.unlinkSync(filePath)
             }
         }
     }
+    return missingContracts;
 }
 
 const writeMeta = async (plan,contracts)=>{
@@ -212,10 +231,8 @@ const downloadContracts = async (plans)=>{
         metaAll.push({plan,contracts})
         if(!MetaOnly){
             log.info(`start to download contract in plan ${plan.name}`)
-            await downloadContractsInPlan(contracts)
+            await downloadContractsInPlan(plan,contracts)
             log.info(`download contract in plan ${plan.name} success`)
-            await moveContracts(plan,contracts)
-            log.info(`move download files for plan ${plan.name} success`)
         }
     }
     jsonfile.writeFileSync(downloadPath + '/contracts.json', metaAll, { spaces: 2 })
@@ -227,7 +244,7 @@ const download = async (username,passwd)=>{
     let plans = await getPlans()
     await downloadContracts(plans)
     await browser.close()
-    return dateUrlPath + '/contracts.json'
+    return datePath
 }
 
 module.exports = {download}
