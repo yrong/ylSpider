@@ -131,7 +131,7 @@ const saveContract = async (plan,contracts)=>{
             {id: 'borrowerType', title: '借款人类型'},
             {id: 'amount', title: '金额'},
             {id: 'rate', title: '利率%'},
-            {id: 'timeTerm', title: '期限(月)'},
+            {id: 'term', title: '期限(月)'},
             {id: 'payType', title: '还款方式'},
             {id: 'payStartDate', title: '开始时间'},
             {id: 'myAmount', title: '我的待收'},
