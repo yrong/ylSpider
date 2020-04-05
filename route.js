@@ -9,7 +9,7 @@ router.get('/nifa', async (ctx, next) => {
 });
 
 router.post('/yooli', async (ctx, next) => {
-    let data = await yooli.retrieve(ctx.request.body)
+    let data = await yooli.retrieve(yooli.indexName,ctx.request.body)
     ctx.body = data;
 });
 

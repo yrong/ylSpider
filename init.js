@@ -1,5 +1,6 @@
-const yooli = require('./yooli')
-
-yooli.init().then(()=>{
-    console.log('init mapping in elasticsearch')
+(async() => {
+    const search = require('./search')
+    await search.init()
+})().catch((e)=>{
+    console.log(e)
 })
