@@ -1,0 +1,1 @@
+powershell -executionpolicy unrestricted -File init.ps1

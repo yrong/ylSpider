@@ -4,6 +4,7 @@ const client = new Client({ node: `http://${process.env['ES_HOST']||'localhost'}
 const init = async (index) => {
     await client.indices.putTemplate({
         "name": 'yooli',
+        "include_type_name":false,
         "body":{
             "index_patterns": ["yooli*"],
             "settings": {
@@ -47,6 +48,7 @@ const init = async (index) => {
 const save = async (index,data)=>{
     let saveObj = {
         index: index,
+        type: '_doc',
         body: {...data,createDate:Date.now()},
         refresh:true
     }
@@ -85,7 +87,7 @@ const batchSave = async (index,items)=>{
     let bulks = [],bulk_action,bulk_obj
     for (let item of items) {
         bulk_obj = item
-        bulk_action = {_index: index}
+        bulk_action = {_index: index,_type:'_doc'}
         if(item.id){
             bulk_action._id = item.id
         }

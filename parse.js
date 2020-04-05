@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const log = require('simple-node-logger').createSimpleLogger('parse.log');
+const log = require('simple-node-logger').createSimpleLogger();
 const PdfReader = require("pdfreader").PdfReader;
 require('dotenv').config()
 

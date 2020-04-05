@@ -1,9 +1,8 @@
 node_modules
 .idea
 .vscode
-download.log
 download
 .env
-parse.log
+*.log
 test/test.js
 

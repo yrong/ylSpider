@@ -4,7 +4,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp')
-const log = require('simple-node-logger').createSimpleLogger('download.log');
+const log = require('simple-node-logger').createSimpleLogger();
 const moment = require('moment')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const search = require('./search')
@@ -48,7 +48,6 @@ const init = async ()=>{
 }
 
 const login = async (username,passwd)=>{
-    log.info('start to login')
     await page.goto('https://www.yooli.com/',{waitUntil:'domcontentloaded'});
     const loginSelector = "a[href='/secure/login/'][data-hm='navigation, nav_login']";
     await page.waitForSelector(loginSelector);
@@ -139,10 +138,15 @@ const saveContract = async (plan,contracts)=>{
         ]
     });
     await csvWriter.writeRecords(contracts)
-    if(SaveSearch){
-        await search.batchSave(yooli_contract_prefix + currDate,contracts)
-    }
     log.info(`success to save all contracts in plan ${plan.planName}`)
+    if(SaveSearch){
+        try{
+            await search.batchSave(yooli_contract_prefix + currDate,contracts)
+            log.info(`success to save all contracts in plan ${plan.planName} to ElasticSearch`)
+        }catch(e){
+            log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
+        }
+    }
 }
 
 const getContract = async(plan)=>{
@@ -302,6 +306,7 @@ const downloadContractsInPlan = async (plan,contracts)=>{
         log.info(`retry contracts:${JSON.stringify(retryContracts)}`)
         await downloadContractsInPlan(plan,retryContracts)
     }
+    log.info(`success to download contracts in plan ${plan.planName}`)
 }
 
 const downloadContracts = async (plans)=>{

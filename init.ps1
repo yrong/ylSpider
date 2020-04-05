@@ -6,7 +6,9 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
    break
 }
 
-Start-Process -Wait -FilePath dotNetFx40_Full_setup
+Set-ExecutionPolicy -ExecutionPolicy unrestricted -Scope CurrentUser
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 
 write-host "install chocolatey"
 if (Get-Command choco -errorAction SilentlyContinue) {
@@ -15,12 +17,32 @@ if (Get-Command choco -errorAction SilentlyContinue) {
 }else{
     write-host "install choco:"
     Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    refreshenv
 }
 
-write-host "install node by choco"
+write-host "install chrome by chocolatey"
+if(choco list -lo | Where-object { $_.ToLower().StartsWith("GoogleChrome".ToLower()) }){
+		write-host "chrome detected,ignore install"
+}else{
+	choco install -y googlechrome -force
+	$env:Path += ";C:\Program Files (x86)\Google\Chrome\Application"
+	refreshenv
+}
+
+write-host "install jdk and elasticsearch by chocolatey"
+if (Get-Command java -errorAction SilentlyContinue) {
+	write-host "java detected,ignore install"
+}else{
+	choco install -y jdk8
+	choco install -y elasticsearch
+	refreshenv
+	Start-Service elasticsearch-service-x64
+}
+
+write-host "install node by chocolatey"
 if (Get-Command node -errorAction SilentlyContinue) {
 	$node_ver=(Get-Command node | Select-Object -ExpandProperty Version).toString()
-	if ([System.Version]$node_ver -lt [System.Version]"8.0.0") {
+	if ([System.Version]$node_ver -lt [System.Version]"9.0.0") {
 		write-Warning "node installed but version too old,please upgrade or reinstall"
 		break
 	}
@@ -32,8 +54,12 @@ if (Get-Command node -errorAction SilentlyContinue) {
 }
 
 write-host "intall pm2"
-npm install pm2 -g
-npm install pm2-windows-startup -g
+if (Get-Command pm2 -errorAction SilentlyContinue) {
+	write-host "pm2 detected,ignore install"
+}else{
+	npm install pm2 -g
+	npm install pm2-windows-startup -g
+}
 
 write-host "install application as service"
 npm install
