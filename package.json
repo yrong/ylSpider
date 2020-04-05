@@ -7,7 +7,8 @@
     "init": "node init.js",
     "start": "node main.js",
     "cron": "node cron.js",
-    "download": "node download.js"
+    "download": "node download.js",
+    "release": "sh release.sh"
   },
   "keywords": [],
   "author": "",
