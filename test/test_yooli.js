@@ -1,8 +1,7 @@
 (async() => {
     const yooli = require('../yooli')
     let data = await yooli.gather()
-    console.log(data)
-    await yooli.save(data)
+    await yooli.gatherSave(yooli.indexName,data)
     const params = {
         "body":
             {
@@ -12,7 +11,7 @@
                     }
                 },
                 "sort" : [
-                    { "create_date" : {"order" : "asc"}}]
+                    { "createDate" : {"order" : "asc"}}]
             }
     }
     let result = await yooli.retrieve(params)

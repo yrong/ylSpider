@@ -24,6 +24,9 @@ const gather = ()=>{
                     daily_data.total_loan_remainder_num = total_loan_remainder_num//借贷余额笔数
                     let interest_remainder = parseInt($(".loan_data.second dl:nth-of-type(4) dt").text().replace(/,/g,''));
                     daily_data.interest_remainder = interest_remainder//利息余额
+                    let currDate = new Date().toISOString().replace(/(T.+)/,'').replace(/\-/g,'')
+                    daily_data.currDate = currDate
+                    daily_data.id = currDate
                 }
                 done()
             }
@@ -44,6 +47,9 @@ const gatherSave = async ()=>{
     return data;
 }
 
+const retrieve = async (params)=>{
+    let data = await search.retrieve(indexName,params)
+    return data
+}
 
-
-module.exports = {gather,gatherSave,indexName}
+module.exports = {gather,gatherSave,retrieve,indexName}

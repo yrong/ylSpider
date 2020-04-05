@@ -20,7 +20,7 @@ yooli-spider项目说明
 
 配置文件 | 说明
 --- | --- 
-.env.example                 |配置环境变量(配置登录用户密码,其它配置项参考文件说明)
+.env.example                 |配置环境变量(主要完成登录配置和chrome浏览器配置,其它配置项参考文件说明)
 
 .env.example配置完成后重命名为.env
 
@@ -34,7 +34,16 @@ npm install
 
 ```
 npm run init//初始化elasticsearch
-npm run start//启动web服务,访问http://localhost:8080页面可查看互金平台和官网相关数据
-npm run cron//每日采集官网出借数据并存储到elasticsearch
-npm run download//一键下载合同
+npm run download//一键下载合同,平台封闭了下载接口,目前只能下载明细数据
 ```
+
+![](/contract.png)
+
+### 小tips
+
+> windows平台封装了一个安装脚本,[以管理员身份运行命令提示符](https://jingyan.baidu.com/article/b2c186c8319f45c46ff6ff4b.html)
+可一键安装依赖组件和应用程序并加入系统服务
+
+> 若不用elasticsearch做数据查询,.env的SaveSearch配置项可以配置为false且无需运行`npm run init`
+
+> 测试程序期间可配置.env的PlanName配置项为一个金额较小的定存宝项目编号运行`npm run download`
