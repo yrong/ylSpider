@@ -37,7 +37,9 @@ npm run init//初始化elasticsearch
 npm run download//一键下载合同（平台封闭了下载接口,目前只能下载明细数据）
 ```
 
-![](/contract.png)
+### 生成表格文件示例
+
+![](contract.png)
 
 ### 小tips
 
@@ -45,4 +47,9 @@ npm run download//一键下载合同（平台封闭了下载接口,目前只能�
 
 > 若不用elasticsearch做数据查询,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
-> 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）运行`npm run download`，程序运行完成后观察download目录下是否生成了相关合同文件，没有问题再下载所有项目
+> 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）运行`npm run download`，程序运行完成后download目录下成功生成了相关合同文件PlanName配置为空再下载所有项目合同
+
+> 觉得好用，请我喝杯咖啡就成
+
+![](appreciate.jpg)
+
