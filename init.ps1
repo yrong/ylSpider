@@ -24,20 +24,27 @@ write-host "install chrome by chocolatey"
 if(choco list -lo | Where-object { $_.ToLower().StartsWith("GoogleChrome".ToLower()) }){
 		write-host "chrome detected,ignore install"
 }else{
-	choco install -y googlechrome -force
+	choco install -y googlechrome
 	$env:Path += ";C:\Program Files (x86)\Google\Chrome\Application"
 	refreshenv
 }
 
-write-host "install jdk and elasticsearch by chocolatey"
-if (Get-Command java -errorAction SilentlyContinue) {
-	write-host "java detected,ignore install"
+$useSearchService=$false
+if ($useSearchService) {
+	write-host "install jdk and elasticsearch by chocolatey"
+	if (Get-Command java -errorAction SilentlyContinue) {
+		write-host "java detected,ignore install"
+	}else{
+		choco install -y jdk8
+		refreshenv
+		choco install -y elasticsearch
+		refreshenv
+		Start-Service elasticsearch-service-x64
+	}
 }else{
-	choco install -y jdk8
-	choco install -y elasticsearch
-	refreshenv
-	Start-Service elasticsearch-service-x64
+	write-host "skip use search service"
 }
+
 
 write-host "install node by chocolatey"
 if (Get-Command node -errorAction SilentlyContinue) {
@@ -60,6 +67,9 @@ if (Get-Command pm2 -errorAction SilentlyContinue) {
 	npm install pm2 -g
 	npm install pm2-windows-startup -g
 }
+
+write-host "generate env file from template"
+((Get-Content -path .env.example -Encoding UTF8) -replace 'ronyang',$env:UserName) | Out-File -Encoding UTF8 .env
 
 write-host "install application as service"
 npm install
