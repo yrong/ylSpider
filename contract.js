@@ -134,7 +134,9 @@ const saveContract = async (plan,contracts)=>{
             {id: 'payType', title: '还款方式'},
             {id: 'payStartDate', title: '开始时间'},
             {id: 'myAmount', title: '我的待收'},
-            {id: 'expired', title: '是否逾期'}
+            {id: 'expired', title: '是否逾期'},
+            {id: 'infoUrl', title:'合同链接'},
+            {id: 'detailUrl', title:'合同详情链接'}
         ]
     });
     await csvWriter.writeRecords(contracts)
@@ -151,6 +153,7 @@ const saveContract = async (plan,contracts)=>{
 
 const getContract = async(plan)=>{
     const contractInfoSelector = "a[href^='/dingcunbao/item']";
+    const contractDetailSelector = "a[href^='/contractDetail.session.action']";
     const contractDownloadSelector = "a[onclick^='downloadVerify']";
     const myAmountSelector = '#financePlanLoanInvestorList div.plan-post:not(:first-child) ul li.col_2'
     const contractPageNumSelector = "div#planLoanListPager a:nth-last-child(2)";
@@ -178,11 +181,15 @@ const getContract = async(plan)=>{
     maxContractPageNum = parseInt(maxContractPageNum)
     //get all contract links
     let getContractsInPage = async ()=>{
+        let details = await page.$$eval(contractDetailSelector, anchors => {
+            return [].map.call(anchors, a => {
+                return {detailUrl:a.href}
+            })});
         let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
                 let onclickValue = a.attributes.onclick.value,
                     regex = /^downloadVerify\("(\d+)","(\d+)"\)$/,
-                    loanId,loaninvestorId,downloadUrl,match
+                    loanId,loaninvestorId,detailUrl,downloadUrl,match
                 match = regex.exec(onclickValue)
                 if(match&&match.length==3){
                     loanId = match[1]
@@ -191,16 +198,16 @@ const getContract = async(plan)=>{
                     return {loanId,loaninvestorId,downloadUrl}
                 }
             })});
-        let infos = await page.$$eval(contractInfoSelector, anchors => {
-            return [].map.call(anchors, a => {
-                return {name:a.innerText,infoUrl:a.href}
-            })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
             return [].map.call(eles, ele => {
                 return {myAmount:parseFloat(ele.innerText)}
             })});
+        let infos = await page.$$eval(contractInfoSelector, anchors => {
+            return [].map.call(anchors, a => {
+                return {name:a.innerText,infoUrl:a.href}
+            })});
         for(let i=0;i<infos.length;i++){
-            Object.assign(infos[i],downloads[i],myAmounts[i],{id:downloads[i].loanId})
+            Object.assign(infos[i],details[i],downloads[i],myAmounts[i],{id:downloads[i].loanId})
         }
         return infos
     }
