@@ -16,8 +16,9 @@ let browser,page,currDate,downloadPath,
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
     ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
     SkipDownload = (process.env['SkipDownload']=='true'),
+    SkipDetail = (process.env['SkipDetail']=='true'),
     SaveSearch = (process.env['SaveSearch']=='true'),
-    WeixinLogin = (process.env['Weixin_Login']=='true'),
+    WeixinLogin = (process.env['WeixinLogin']=='true'),
     PlanName = process.env['PlanName'],
     DownloadInterval = parseInt(process.env['DownloadInterval']),
     DownBatchSize = parseInt(process.env['DownBatchSize']),
@@ -27,17 +28,14 @@ const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const loadPageOption = {waitUntil:'domcontentloaded'}
+
 const init = async ()=>{
     const args = [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certifcate-errors',
-        '--ignore-certifcate-errors-spki-list',
-        '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
+        '--disable-gpu', '--full-memory-crash-report', '--unlimited-storage',
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'
     ];
-    browser = await puppeteer.launch({args, headless: ChromeHeadlessMode, slowMo: 50,
+    browser = await puppeteer.launch({args, pipe:true, headless: ChromeHeadlessMode, slowMo: 50,
         timeout:DefaultTimeout, executablePath:ChromeBinPath});
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(DefaultTimeout);
@@ -48,7 +46,7 @@ const init = async ()=>{
 }
 
 const login = async (username,passwd)=>{
-    await page.goto('https://www.yooli.com/',{waitUntil:'domcontentloaded'});
+    await page.goto('https://www.yooli.com/',loadPageOption);
     const loginSelector = "a[href='/secure/login/'][data-hm='navigation, nav_login']";
     await page.waitForSelector(loginSelector);
     await page.click(loginSelector);
@@ -71,7 +69,7 @@ const login = async (username,passwd)=>{
 const getPlans = async ()=>{
     const planSelector = "div#itemCurrentContent ul li";
     const planPageNumSelector = "div#financeCurrentPage a:nth-last-child(2)";
-    await page.goto('https://www.yooli.com/financePlanRecords.session.action',{waitUntil:'domcontentloaded'});
+    await page.goto('https://www.yooli.com/financePlanRecords.session.action',loadPageOption);
     await page.waitForSelector(planSelector);
     //get maxPageNum for plans
     let maxPlanPageNum = await page.$eval(planPageNumSelector, element => {
@@ -100,7 +98,7 @@ const getPlans = async ()=>{
 }
 
 const findMissingAndMoveFinished = async (plan,contracts)=>{
-    let contractFile,contractId,match,filePath,missingContracts = [],PlanPath = downloadPath + "/" + plan.name
+    let contractFile,contractId,match,filePath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
     for(let contract of contracts){
         match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract.downloadUrl)
         if(match&&match.length==3){
@@ -135,32 +133,30 @@ const saveContract = async (plan,contracts)=>{
             {id: 'payStartDate', title: '开始时间'},
             {id: 'myAmount', title: '我的待收'},
             {id: 'expired', title: '是否逾期'},
-            {id: 'infoUrl', title:'合同链接'},
             {id: 'detailUrl', title:'合同详情链接'}
         ]
     });
     await csvWriter.writeRecords(contracts)
-    log.info(`success to save all contracts in plan ${plan.planName}`)
     if(SaveSearch){
         try{
             await search.batchSave(yooli_contract_prefix + currDate,contracts)
-            log.info(`success to save all contracts in plan ${plan.planName} to ElasticSearch`)
         }catch(e){
             log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
         }
     }
+    log.info(`success to save all contracts in plan ${plan.planName}`)
 }
 
 const getContract = async(plan)=>{
     const contractInfoSelector = "a[href^='/dingcunbao/item']";
     const contractDetailSelector = "a[href^='/contractDetail.session.action']";
-    const contractDownloadSelector = "a[onclick^='downloadVerify']";
+    const contractDownloadSelector = "a[href^='/contractDetailDownload.session.action']";
     const myAmountSelector = '#financePlanLoanInvestorList div.plan-post:not(:first-child) ul li.col_2'
     const contractPageNumSelector = "div#planLoanListPager a:nth-last-child(2)";
     const lendRateSelector = `div#main em#rate`
     const lendAmountSelector = `div#main ul.items:nth-child(1) li.y_2`
     const lendDateSelector = `div#main ul.items:nth-child(2) li.y_2`
-    await page.goto(`https://www.yooli.com/userPlan/detail/${plan.planId}.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`https://www.yooli.com/userPlan/detail/${plan.planId}.html`,loadPageOption);
     await page.waitForSelector(contractInfoSelector);
     let planRate = await page.$eval(lendRateSelector, element => {
         return element.innerText.split('+').reduce((total,rate)=>{
@@ -187,15 +183,15 @@ const getContract = async(plan)=>{
             })});
         let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
-                let onclickValue = a.attributes.onclick.value,
-                    regex = /^downloadVerify\("(\d+)","(\d+)"\)$/,
-                    loanId,loaninvestorId,detailUrl,downloadUrl,match
-                match = regex.exec(onclickValue)
+                let regex = /.*loanId=(\d+)\&loaninvestorId=(\d+)$/,
+                    loanId,loaninvestorId,imageUrl,downloadUrl,match
+                match = regex.exec(a.href)
                 if(match&&match.length==3){
                     loanId = match[1]
                     loaninvestorId = match[2]
-                    downloadUrl = `https://www.yooli.com/contractDetailDownload.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
-                    return {loanId,loaninvestorId,downloadUrl}
+                    downloadUrl = a.href
+                    imageUrl = `https://www.yooli.com/viewSignature.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
+                    return {loanId,loaninvestorId,downloadUrl,imageUrl}
                 }
             })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
@@ -236,7 +232,7 @@ const getContractDetail = async (plan,contracts)=>{
     const borrowRepayStartDateSelector = 'div.invest-top div.repay span.t:nth-child(2)'
     for(let contract of contracts){
         try{
-            await page.goto(contract.infoUrl,{waitUntil:'domcontentloaded'})
+            await page.goto(contract.infoUrl,loadPageOption)
             await page.waitForSelector(borrowAmountSelector);
             let amount = await page.$eval(borrowAmountSelector, element => {
                 return parseFloat(element.innerText.replace(',',''))
@@ -283,37 +279,32 @@ const getContractDetail = async (plan,contracts)=>{
     return contracts
 }
 
-const downloadContractsInPlan = async (plan,contracts)=>{
+const downloadContract = async (plan,contracts)=>{
     let cnt = 0,retryContracts = [];
+    const DownloadTipSelector = "div#downloadDialog div#downloadConfirmDesc span#signAuthCodeTipAuto i.green-proper"
+    const VerifyCodeSelector = "div#downloadConfirmDesc input#authCode"
     for(let contract of contracts){
         try{
-            await page.goto(contract.downloadUrl)
-            //comes here means download fail,curios!!
+            await page.goto(contract.downloadUrl,loadPageOption)
+            await page.waitForSelector(VerifyCodeSelector);
+            await page.click(VerifyCodeSelector)
+            await page.waitForSelector(DownloadTipSelector);
+            let verifycode = await page.$eval(VerifyCodeSelector, element => {
+                return parseInt(element.value)
+            });
+            await page.goto(contract.downloadUrl + '&verifycode=' + verifycode,loadPageOption)
+            // comes here means download fail,curios!!
             log.error(`{link:${contract.name}} download fail,will retry`)
-            await sleep(DownloadInterval);
-        }catch(e){//just ignore
-            await sleep(500);
-            if(e.message.startsWith('net::ERR_ABORTED')){
-                //comes here means download success
-                log.info(`{link:${contract.name}} download success`)
-            }else{
-                log.error(e.stack||e)
-            }
-            cnt++;
-            if(cnt==DownBatchSize){
-                log.info(`just wait after download every ${DownBatchSize} files`)
-                await sleep(DownloadInterval);
-                cnt=0
-            }
+        }catch(e){
+            //just ignore
         }
     }
-    await sleep(DownloadInterval)
-    retryContracts = await findMissingAndMoveFinished(contracts)
+    // await sleep(DownloadInterval)
+    retryContracts = await findMissingAndMoveFinished(plan,contracts)
     if(retryContracts.length){
-        log.info(`retry contracts:${JSON.stringify(retryContracts)}`)
-        await downloadContractsInPlan(plan,retryContracts)
+        log.info(`retry missing contracts:${JSON.stringify(retryContracts)} in plan ${plan.planName}`)
+        await downloadContract(plan,retryContracts)
     }
-    log.info(`success to download contracts in plan ${plan.planName}`)
 }
 
 const downloadContracts = async (plans)=>{
@@ -325,13 +316,15 @@ const downloadContracts = async (plans)=>{
     }
     for(let plan of plans){
         let contracts = await getContract(plan)
-        contracts = await getContractDetail(plan,contracts)
-        await saveContract(plan,contracts)
+        if(!SkipDetail){
+            contracts = await getContractDetail(plan,contracts)
+        }
         if(!SkipDownload){
             log.info(`start to download contract in plan ${plan.planName}`)
-            await downloadContractsInPlan(plan,contracts)
+            await downloadContract(plan,contracts)
             log.info(`download contract in plan ${plan.planName} success`)
         }
+        await saveContract(plan,contracts)
     }
 }
 
