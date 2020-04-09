@@ -22,7 +22,8 @@ let browser,page,currDate,downloadPath,
     PlanName = process.env['PlanName'],
     DownloadInterval = parseInt(process.env['DownloadInterval']),
     DownBatchSize = parseInt(process.env['DownBatchSize']),
-    DefaultTimeout = parseInt(process.env['DefaultTimeout'])
+    DefaultTimeout = parseInt(process.env['DefaultTimeout']),
+    DownloadPolicy = process.env['DownloadPolicy']
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -121,20 +122,21 @@ const saveContract = async (plan,contracts)=>{
     let PlanPath = downloadPath + "/" + plan.planName
     await mkdirp(PlanPath)
     contracts = contracts.map(contract=>Object.assign(contract,plan))
-    const csvWriter = createCsvWriter({
-        path: PlanPath + '/contracts.csv',
-        header: [
-            {id: 'name', title: '名称'},
-            {id: 'borrowerType', title: '借款人类型'},
+    let header = [{id: 'name', title: '名称'},
+        {id: 'myAmount', title: '我的待收'},
+        {id: 'detailUrl', title:'合同详情链接'}]
+    if(!SkipDetail){
+        header = header.concat([{id: 'borrowerType', title: '借款人类型'},
             {id: 'amount', title: '金额'},
             {id: 'rate', title: '利率%'},
             {id: 'term', title: '期限(月)'},
             {id: 'payType', title: '还款方式'},
             {id: 'payStartDate', title: '开始时间'},
-            {id: 'myAmount', title: '我的待收'},
-            {id: 'expired', title: '是否逾期'},
-            {id: 'detailUrl', title:'合同详情链接'}
-        ]
+            {id: 'expired', title: '是否逾期'}])
+    }
+    const csvWriter = createCsvWriter({
+        path: PlanPath + '/contracts.csv',
+        header: header
     });
     await csvWriter.writeRecords(contracts)
     if(SaveSearch){
@@ -283,27 +285,45 @@ const downloadContract = async (plan,contracts)=>{
     let cnt = 0,retryContracts = [];
     const DownloadTipSelector = "div#downloadDialog div#downloadConfirmDesc span#signAuthCodeTipAuto i.green-proper"
     const VerifyCodeSelector = "div#downloadConfirmDesc input#authCode"
-    for(let contract of contracts){
-        try{
-            await page.goto(contract.downloadUrl,loadPageOption)
-            await page.waitForSelector(VerifyCodeSelector);
-            await page.click(VerifyCodeSelector)
-            await page.waitForSelector(DownloadTipSelector);
-            let verifycode = await page.$eval(VerifyCodeSelector, element => {
-                return parseInt(element.value)
-            });
-            await page.goto(contract.downloadUrl + '&verifycode=' + verifycode,loadPageOption)
-            // comes here means download fail,curios!!
-            log.error(`{link:${contract.name}} download fail,will retry`)
-        }catch(e){
-            //just ignore
+    const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
+    let PlanPath = downloadPath + "/" + plan.planName
+
+    if(DownloadPolicy=='pdf') {
+        for(let contract of contracts){
+            try{
+                await page.goto(contract.downloadUrl,loadPageOption)
+                await page.waitForSelector(VerifyCodeSelector);
+                await page.click(VerifyCodeSelector)
+                await page.waitForSelector(DownloadTipSelector);
+                let verifycode = await page.$eval(VerifyCodeSelector, element => {
+                    return parseInt(element.value)
+                });
+                await page.goto(contract.downloadUrl + '&verifycode=' + verifycode,loadPageOption)
+                // comes here means download fail,curios!!
+                log.error(`link:${contract.name} download fail,will retry`)
+            }catch(e){
+                //just ignore
+            }
+        }
+        retryContracts = await findMissingAndMoveFinished(plan, contracts)
+        if (retryContracts.length) {
+            log.info(`retry missing contracts:${JSON.stringify(retryContracts)} in plan ${plan.planName}`)
+            await downloadContract(plan, retryContracts)
         }
     }
-    // await sleep(DownloadInterval)
-    retryContracts = await findMissingAndMoveFinished(plan,contracts)
-    if(retryContracts.length){
-        log.info(`retry missing contracts:${JSON.stringify(retryContracts)} in plan ${plan.planName}`)
-        await downloadContract(plan,retryContracts)
+    else if(DownloadPolicy=='image'){
+        for(let contract of contracts) {
+            try {
+                await page.goto(contract.imageUrl, loadPageOption)
+                await page.waitForSelector(ContractImageSelector,{timeout:5000});
+                await page.click(ContractImageSelector)
+                await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
+            } catch (e) {
+                log.error(`imageUrl ${contract.imageUrl} download fail!` + e.stack||e)
+            }
+        }
+    }else{
+        throw new Error('contract download source not support')
     }
 }
 
@@ -319,12 +339,12 @@ const downloadContracts = async (plans)=>{
         if(!SkipDetail){
             contracts = await getContractDetail(plan,contracts)
         }
+        await saveContract(plan,contracts)
         if(!SkipDownload){
             log.info(`start to download contract in plan ${plan.planName}`)
             await downloadContract(plan,contracts)
             log.info(`download contract in plan ${plan.planName} success`)
         }
-        await saveContract(plan,contracts)
     }
 }
 

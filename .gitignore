@@ -5,4 +5,5 @@ download
 .env
 *.log
 test/test.js
+release.zip
 
