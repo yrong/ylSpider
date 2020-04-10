@@ -53,6 +53,7 @@ const login = async (username,passwd)=>{
     await page.click(loginSelector);
     await page.waitForSelector('#loginBt');
     log.info('to login page success')
+    await sleep(1000)
     if(WeixinLogin){
         const weixinLoginSelector = "a[data-hm='login_page, wechat_login']";
         await page.click(weixinLoginSelector)
@@ -293,7 +294,7 @@ const downloadContract = async (plan,contracts)=>{
             try{
                 await page.goto(contract.downloadUrl,loadPageOption)
                 await page.waitForSelector(VerifyCodeSelector);
-                await page.waitForNavigation(loadPageOption);
+                await page.waitForSelector(VerifyCodeSelector,{hidden: true});
                 log.info(`link:${contract.name} download success`)
             }catch(e){
                 log.error(`link:${contract.name} download fail:` + e.stack||e)
