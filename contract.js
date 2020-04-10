@@ -284,7 +284,7 @@ const getContractDetail = async (plan,contracts)=>{
 const downloadContract = async (plan,contracts)=>{
     let cnt = 0,retryContracts = [];
     const DownloadTipSelector = "div#downloadDialog div#downloadConfirmDesc span#signAuthCodeTipAuto i.green-proper"
-    const VerifyCodeSelector = "div#downloadConfirmDesc input#authCode"
+    const VerifyCodeSelector = "div.slide-btn"
     const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
     let PlanPath = downloadPath + "/" + plan.planName
 
@@ -293,16 +293,10 @@ const downloadContract = async (plan,contracts)=>{
             try{
                 await page.goto(contract.downloadUrl,loadPageOption)
                 await page.waitForSelector(VerifyCodeSelector);
-                await page.click(VerifyCodeSelector)
-                await page.waitForSelector(DownloadTipSelector);
-                let verifycode = await page.$eval(VerifyCodeSelector, element => {
-                    return parseInt(element.value)
-                });
-                await page.goto(contract.downloadUrl + '&verifycode=' + verifycode,loadPageOption)
-                // comes here means download fail,curios!!
-                log.error(`link:${contract.name} download fail,will retry`)
+                await page.waitForNavigation(loadPageOption);
+                log.info(`link:${contract.name} download success`)
             }catch(e){
-                //just ignore
+                log.error(`link:${contract.name} download fail:` + e.stack||e)
             }
         }
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
