@@ -27,12 +27,22 @@ const parseBorrowerName = (lines)=>{
     }
 }
 
-const parseBorrowerId = (lines)=>{
-    let regex = /有利网用户名：(.*?)$/,result
+const parseBorrowerYooliId = (lines)=>{
+    let regex = /用户名：(.*?)$/,result
     for(let line of lines){
         result = regex.exec(line)
         if(result&&result.length==2){
             return result[1]
+        }
+    }
+}
+
+const parseBorrowerId = (lines)=>{
+    let regex = /身份证号码：\s*(\d{2}.*?)$|身份证号码（自然人）：\s*(\d{2}.*?)$/,result
+    for(let line of lines){
+        result = regex.exec(line)
+        if(result&&(result.length==2||result.length==3)){
+            return result[result.length-1]||result[result.length-2]
         }
     }
 }
@@ -70,11 +80,12 @@ const parseMyLends = (lines)=>{
 }
 
 const parseAssurance = (lines)=>{
-    let regex = /丁方：(.*)$/,result
+    let regex = /丁方:(.*)$|丁方：(.*)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            return result[1].replace('（','')
+        if(result&&(result.length==2||result.length==3)){
+            result = result[result.length-1]||result[result.length-2]
+            return result.replace('（','')
         }
     }
 }
@@ -83,8 +94,9 @@ const parseLender = (lines)=>{
     let regex = /丙方：(.*)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            return result[1].replace('（','')
+        if(result&&(result.length==2||result.length==3)){
+            result = result[result.length-1]||result[result.length-2]
+            return result.replace('（','')
         }
     }
 }
@@ -92,15 +104,16 @@ const parseLender = (lines)=>{
 const parseAll = (lines)=>{
     let signDate = parseSignDate(lines)
     let borrowerName = parseBorrowerName(lines)
+    let borrowerYooliID = parseBorrowerYooliId(lines)
     let borrowerID = parseBorrowerId(lines)
     let contractType = parseContractType(lines)
     let myLends = parseMyLends(lines)
     let lender = parseLender(lines)
     let assurance = parseAssurance(lines)
-    return {signDate,borrowerName,borrowerID,contractType,myLends,lender,assurance}
+    return {signDate,borrowerName,borrowerYooliID,borrowerID,contractType,myLends,lender,assurance}
 }
 
-const parseFile = async (filePath,plan,contractId)=>{
+const parsePdf = async (filePath)=>{
     return new Promise((resolve,reject)=>{
         let lines = [],parsed
         new PdfReader().parseFileItems(filePath, function(err, item) {
@@ -108,7 +121,6 @@ const parseFile = async (filePath,plan,contractId)=>{
             else if (!item) {
                 console.log(JSON.stringify(lines,null,2))
                 parsed = parseAll(lines)
-                parsed = Object.assign({plan,contractId},parsed)
                 resolve(parsed);
             }
             else if (item.text) {
@@ -129,7 +141,7 @@ const parse = async (datePath)=>{
                 let filePath = downloadPath + '/' + plan + '/' + contractFile
                 let match = /^loanagreement_(.*)\.pdf$/.exec(contractFile)
                 if (match&&match.length==2) {
-                    let contract = await parseFile(filePath,plan,match[1])
+                    let contract = await parsePdf(filePath,plan,match[1])
                     contracts.push(contract)
                 }
             }
@@ -139,15 +151,6 @@ const parse = async (datePath)=>{
     }
 }
 
-(async() => {
-    // const filePath = './download/2020-04-02/24-180102/loanagreement_2154974.pdf'
-    const filePath = '/home/ronyang/Downloads/loanagreement_4362115.pdf'
-    let parsed = await parseFile(filePath)
-    console.log(JSON.stringify(parsed,null,2))
-    // await parse()
-    console.log('hello')
-})().catch((e)=>{
-    console.log(e)
-})
+module.exports = {parsePdf}
 
 

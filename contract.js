@@ -9,6 +9,7 @@ const moment = require('moment')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const search = require('./search')
 const yooli_contract_prefix = 'yooli_contract_'
+const parse = require('./parse')
 require('dotenv').config()
 
 let browser,page,currDate,downloadPath,
@@ -125,7 +126,10 @@ const saveContract = async (plan,contracts)=>{
     contracts = contracts.map(contract=>Object.assign(contract,plan))
     let header = [{id: 'name', title: '名称'},
         {id: 'myAmount', title: '我的待收'},
-        {id: 'detailUrl', title:'合同详情链接'}]
+        {id: 'detailUrl', title:'合同详情链接'},
+        {id:'planName',title:'定存宝名'},
+        {id:'planAmount',title:'定存宝投资额'},
+        ]
     if(!SkipDetail){
         header = header.concat([{id: 'borrowerType', title: '借款人类型'},
             {id: 'amount', title: '金额'},
@@ -134,6 +138,17 @@ const saveContract = async (plan,contracts)=>{
             {id: 'payType', title: '还款方式'},
             {id: 'payStartDate', title: '开始时间'},
             {id: 'expired', title: '是否逾期'}])
+    }
+    if(!SkipDownload){
+        header = header.concat([
+            {id: 'signDate', title: '合同开始日期'},
+            {id: 'borrowerName', title: '借款人名'},
+            {id: 'borrowerYooliID', title: '借款人有利ID'},
+            {id: 'borrowerID', title: '借款人身份证号'},
+            {id: 'contractType', title: '合同类型'},
+            {id: 'lender', title: '丙方'},
+            {id: 'assurance', title: '担保方'}
+        ])
     }
     const csvWriter = createCsvWriter({
         path: PlanPath + '/contracts.csv',
@@ -302,7 +317,7 @@ const downloadContract = async (plan,contracts)=>{
         }
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
         if (retryContracts.length) {
-            log.info(`retry missing contracts:${JSON.stringify(retryContracts)} in plan ${plan.planName}`)
+            log.info(`retry missing contracts:${retryContracts.map(contract=>contract.name)} in plan ${plan.planName}`)
             await downloadContract(plan, retryContracts)
         }
     }
@@ -322,6 +337,24 @@ const downloadContract = async (plan,contracts)=>{
     }
 }
 
+const parseDownloadContract = async (plan,contracts)=>{
+    const PlanPath = downloadPath + "/" + plan.planName
+    for(let contract of contracts){
+        try{
+            let contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
+            let parsed = await parse.parsePdf(contractFilePath)
+            if(parsed.signDate){
+                parsed.expired = moment(parsed.signDate).add(term, 'M').isBefore(moment())
+            }
+            contract = Object.assign(contract,parsed)
+            log.info(`parse ${contract.name} success`)
+        }catch(e){
+            log.error(`parse ${contract.name} fail:` + e.stack||e)
+        }
+    }
+    return contracts
+}
+
 const downloadContracts = async (plans)=>{
     if(PlanName){
         let todos = PlanName.split(',')
@@ -334,12 +367,13 @@ const downloadContracts = async (plans)=>{
         if(!SkipDetail){
             contracts = await getContractDetail(plan,contracts)
         }
-        await saveContract(plan,contracts)
         if(!SkipDownload){
             log.info(`start to download contract in plan ${plan.planName}`)
             await downloadContract(plan,contracts)
+            await parseDownloadContract(plan,contracts)
             log.info(`download contract in plan ${plan.planName} success`)
         }
+        await saveContract(plan,contracts)
     }
 }
 
