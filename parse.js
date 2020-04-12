@@ -119,7 +119,7 @@ const parsePdf = async (filePath)=>{
         new PdfReader().parseFileItems(filePath, function(err, item) {
             if (err) reject(err);
             else if (!item) {
-                console.log(JSON.stringify(lines,null,2))
+                // console.log(JSON.stringify(lines,null,2))
                 parsed = parseAll(lines)
                 resolve(parsed);
             }

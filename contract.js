@@ -24,7 +24,8 @@ let browser,page,currDate,downloadPath,
     DownloadInterval = parseInt(process.env['DownloadInterval']),
     DownBatchSize = parseInt(process.env['DownBatchSize']),
     DefaultTimeout = parseInt(process.env['DefaultTimeout']),
-    DownloadPolicy = process.env['DownloadPolicy']
+    DownloadPolicy = process.env['DownloadPolicy'],
+    SkipParse = (process.env['SkipParse']=='true')
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -33,12 +34,7 @@ const sleep = async (ms)=>{
 const loadPageOption = {waitUntil:'domcontentloaded'}
 
 const init = async ()=>{
-    const args = [
-        '--disable-gpu', '--full-memory-crash-report', '--unlimited-storage',
-        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'
-    ];
-    browser = await puppeteer.launch({args, pipe:true, headless: ChromeHeadlessMode, slowMo: 50,
-        timeout:DefaultTimeout, executablePath:ChromeBinPath});
+    browser = await puppeteer.launch({headless: ChromeHeadlessMode, slowMo: 50, executablePath:ChromeBinPath});
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(DefaultTimeout);
     await page.setDefaultTimeout(DefaultTimeout)
@@ -100,71 +96,6 @@ const getPlans = async ()=>{
     return plans
 }
 
-const findMissingAndMoveFinished = async (plan,contracts)=>{
-    let contractFile,contractId,match,filePath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
-    for(let contract of contracts){
-        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract.downloadUrl)
-        if(match&&match.length==3){
-            contractId = match[1]
-            contractFile = `loanagreement_${contractId}.pdf`
-            filePath = ChromeDownloadPath + "/" + contractFile
-            if (!fs.existsSync(filePath)) {
-                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.name}`)
-                missingContracts.push(contract)
-            }else{
-                fs.copyFileSync(filePath, PlanPath + "/" + contractFile)
-                fs.unlinkSync(filePath)
-            }
-        }
-    }
-    return missingContracts;
-}
-
-const saveContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName
-    await mkdirp(PlanPath)
-    contracts = contracts.map(contract=>Object.assign(contract,plan))
-    let header = [{id: 'name', title: '名称'},
-        {id: 'myAmount', title: '我的待收'},
-        {id: 'detailUrl', title:'合同详情链接'},
-        {id:'planName',title:'定存宝名'},
-        {id:'planAmount',title:'定存宝投资额'},
-        ]
-    if(!SkipDetail){
-        header = header.concat([{id: 'borrowerType', title: '借款人类型'},
-            {id: 'amount', title: '金额'},
-            {id: 'rate', title: '利率%'},
-            {id: 'term', title: '期限(月)'},
-            {id: 'payType', title: '还款方式'},
-            {id: 'payStartDate', title: '开始时间'},
-            {id: 'expired', title: '是否逾期'}])
-    }
-    if(!SkipDownload){
-        header = header.concat([
-            {id: 'signDate', title: '合同开始日期'},
-            {id: 'borrowerName', title: '借款人名'},
-            {id: 'borrowerYooliID', title: '借款人有利ID'},
-            {id: 'borrowerID', title: '借款人身份证号'},
-            {id: 'contractType', title: '合同类型'},
-            {id: 'lender', title: '丙方'},
-            {id: 'assurance', title: '担保方'}
-        ])
-    }
-    const csvWriter = createCsvWriter({
-        path: PlanPath + '/contracts.csv',
-        header: header
-    });
-    await csvWriter.writeRecords(contracts)
-    if(SaveSearch){
-        try{
-            await search.batchSave(yooli_contract_prefix + currDate,contracts)
-        }catch(e){
-            log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
-        }
-    }
-    log.info(`success to save all contracts in plan ${plan.planName}`)
-}
-
 const getContract = async(plan)=>{
     const contractInfoSelector = "a[href^='/dingcunbao/item']";
     const contractDetailSelector = "a[href^='/contractDetail.session.action']";
@@ -214,7 +145,8 @@ const getContract = async(plan)=>{
             })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
             return [].map.call(eles, ele => {
-                return {myAmount:parseFloat(ele.innerText)}
+                let myAmount = parseFloat(ele.innerText.replace(',',''))
+                return {myAmount}
             })});
         let infos = await page.$$eval(contractInfoSelector, anchors => {
             return [].map.call(anchors, a => {
@@ -236,7 +168,7 @@ const getContract = async(plan)=>{
             log.error(e.stack||e)
         }
     }
-    log.info(`success to get all contracts in plan ${plan.planName}`)
+    log.info(`get contract in plan ${plan.planName} success`)
     return contracts
 }
 
@@ -287,13 +219,13 @@ const getContractDetail = async (plan,contracts)=>{
                 expired = moment(payStartDate).add(term, 'M').isBefore(moment())
             }
             contract = Object.assign(contract,{amount,borrowerType,rate,term,payType,payStartDate,expired})
-            log.info(`success to get contract ${contract.name}`)
+            log.info(`get contract ${contract.name} detail success`)
         }catch (e) {
             log.error(e.stack||e)
             log.error(`fail to get detail of contract ${contract.name} in plan ${plan.planName}`)
         }
     }
-    log.info(`success to get all detail contracts in plan ${plan.planName}`)
+    log.info(`get contract detail in plan ${plan.planName} success`)
     return contracts
 }
 
@@ -303,6 +235,7 @@ const downloadContract = async (plan,contracts)=>{
     const VerifyCodeSelector = "div.slide-btn"
     const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
     let PlanPath = downloadPath + "/" + plan.planName
+    await mkdirp(PlanPath)
 
     if(DownloadPolicy=='pdf') {
         for(let contract of contracts){
@@ -310,9 +243,9 @@ const downloadContract = async (plan,contracts)=>{
                 await page.goto(contract.downloadUrl,loadPageOption)
                 await page.waitForSelector(VerifyCodeSelector);
                 await page.waitForSelector(VerifyCodeSelector,{hidden: true});
-                log.info(`link:${contract.name} download success`)
+                log.info(`contract ${contract.name} download success`)
             }catch(e){
-                log.error(`link:${contract.name} download fail:` + e.stack||e)
+                log.error(`contract ${contract.name} download fail:` + e.stack||e)
             }
         }
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
@@ -337,15 +270,39 @@ const downloadContract = async (plan,contracts)=>{
     }
 }
 
+const findMissingAndMoveFinished = async (plan,contracts)=>{
+    let contractFile,contractId,match,filePath,dstPath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
+    for(let contract of contracts){
+        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract.downloadUrl)
+        if(match&&match.length==3){
+            contractId = match[1]
+            contractFile = `loanagreement_${contractId}.pdf`
+            filePath = ChromeDownloadPath + "/" + contractFile
+            dstPath = PlanPath + "/" + contractFile
+            if (!fs.existsSync(filePath)&&!fs.existsSync(dstPath)) {
+                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.name}`)
+                missingContracts.push(contract)
+            }else{
+                if(fs.existsSync(filePath))
+                {
+                    fs.copyFileSync(filePath, dstPath)
+                    fs.unlinkSync(filePath)
+                }
+            }
+        }
+    }
+    return missingContracts;
+}
+
 const parseDownloadContract = async (plan,contracts)=>{
     const PlanPath = downloadPath + "/" + plan.planName
     for(let contract of contracts){
         try{
             let contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
             let parsed = await parse.parsePdf(contractFilePath)
-            if(parsed.signDate){
-                parsed.expired = moment(parsed.signDate).add(term, 'M').isBefore(moment())
-            }
+            // if(parsed.signDate){
+            //     parsed.expired = moment(parsed.signDate).add(term, 'M').isBefore(moment())
+            // }
             contract = Object.assign(contract,parsed)
             log.info(`parse ${contract.name} success`)
         }catch(e){
@@ -355,11 +312,58 @@ const parseDownloadContract = async (plan,contracts)=>{
     return contracts
 }
 
-const downloadContracts = async (plans)=>{
+const saveContract = async (plan,contracts)=>{
+    let PlanPath = downloadPath + "/" + plan.planName
+    await mkdirp(PlanPath)
+    contracts = contracts.map(contract=>Object.assign(contract,plan))
+    let header = [{id: 'name', title: '名称'},
+        {id: 'myAmount', title: '我的待收'},
+        {id: 'infoUrl', title:'合同链接'},
+        {id: 'detailUrl', title:'合同详情链接'},
+        {id:'planName',title:'定存宝名'},
+        {id:'planAmount',title:'定存宝投资额'},
+    ]
+    if(!SkipDetail){
+        header = header.concat([{id: 'borrowerType', title: '借款人类型'},
+            {id: 'amount', title: '金额'},
+            {id: 'rate', title: '利率%'},
+            {id: 'term', title: '期限(月)'},
+            {id: 'payType', title: '还款方式'},
+            {id: 'payStartDate', title: '开始时间'},
+            {id: 'expired', title: '是否逾期'}])
+    }
+    if(!SkipParse){
+        header = header.concat([
+            {id: 'signDate', title: '合同开始日期'},
+            {id: 'borrowerName', title: '借款人名'},
+            {id: 'borrowerYooliID', title: '借款人有利ID'},
+            {id: 'borrowerID', title: '借款人身份证号'},
+            {id: 'contractType', title: '合同类型'},
+            {id: 'lender', title: '丙方'},
+            {id: 'assurance', title: '担保方'}
+        ])
+    }
+    const csvWriter = createCsvWriter({
+        path: PlanPath + '/contracts.csv',
+        header: header
+    });
+    await csvWriter.writeRecords(contracts)
+    if(SaveSearch){
+        try{
+            await search.batchSave(yooli_contract_prefix + currDate,contracts)
+        }catch(e){
+            log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
+        }
+    }
+    log.info(`save contract in plan ${plan.planName} success`)
+}
+
+const downloadContracts = async ()=>{
+    let plans = await getPlans()
     if(PlanName){
-        let todos = PlanName.split(',')
+        let todo = PlanName.split(',')
         plans = plans.filter((plan)=>{
-            return todos.includes(plan.planName)
+            return todo.includes(plan.planName)
         })
     }
     for(let plan of plans){
@@ -368,10 +372,12 @@ const downloadContracts = async (plans)=>{
             contracts = await getContractDetail(plan,contracts)
         }
         if(!SkipDownload){
-            log.info(`start to download contract in plan ${plan.planName}`)
             await downloadContract(plan,contracts)
-            await parseDownloadContract(plan,contracts)
             log.info(`download contract in plan ${plan.planName} success`)
+        }
+        if(!SkipParse){
+            await parseDownloadContract(plan,contracts)
+            log.info(`parse contract in plan ${plan.planName} success`)
         }
         await saveContract(plan,contracts)
     }
@@ -380,8 +386,7 @@ const downloadContracts = async (plans)=>{
 const download = async (username,passwd)=>{
     await init()
     await login(username,passwd)
-    let plans = await getPlans()
-    await downloadContracts(plans)
+    await downloadContracts()
     await browser.close()
     return currDate
 }
