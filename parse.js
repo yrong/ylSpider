@@ -102,7 +102,8 @@ const parseLender = (lines)=>{
         if(result){
             if(result.length==2||result.length==3){
                 result = result[result.length-1]||result[result.length-2]
-                return result.replace('（','')
+                result = result.replace(/（[^）]*）/,'')
+                return result
             }
         }
     }
@@ -129,7 +130,8 @@ const parseContractDate = (lines)=>{
 const parseAll = (lines)=>{
     const PersonalType = '个人'
     let signDate,borrowerName,borrowerType=PersonalType,
-        borrowerYooliID,borrowerID,contractType,myLends,lender,assurance,contractDate,suspect= false,expired=false
+        borrowerYooliID,borrowerID,contractType,myLends,myLendsStr,
+        lender,assurance,contractDate,real = true,expired=false
     signDate = parseSignDate(lines)
     borrowerName = parseBorrowerName(lines)
     if(borrowerName.match('公司')){
@@ -141,9 +143,11 @@ const parseAll = (lines)=>{
     borrowerID = parseBorrowerId(lines)
     contractType = parseContractType(lines)
     myLends = parseMyLends(lines)
-    if(!myLends||myLends.length==0){
+    if(myLends.length>0){
+        myLendsStr = myLends.join(',')
+    }else{
+        real = false
         myLends = undefined
-        suspect = true
     }
     lender = parseLender(lines)
     assurance = parseAssurance(lines)
@@ -151,7 +155,7 @@ const parseAll = (lines)=>{
     if(contractDate&&contractDate.endDate){
         expired = moment(contractDate.endDate).isBefore(moment())
     }
-    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,lender,assurance,suspect,expired})
+    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,myLendsStr,lender,assurance,real,expired})
 }
 
 const parsePdf = async (filePath)=>{

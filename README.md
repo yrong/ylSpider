@@ -43,13 +43,16 @@ npm run download//一键下载合同（平台封闭了下载接口,目前只能�
 
 ### 小tips
 
-> windows环境封装了一键安装脚本,解压[安装包](https://github.com/yrong/ylSpider/releases/download/1.0/release.zip)后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* windows环境封装了一键安装脚本,解压[安装包地址](https://gitee.com/ronyang1997/ylSpider/attach_files/371965/download)后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
-> 若不用elasticsearch做数据查询,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
+* 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
-> 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）运行`npm run download`，程序运行完成后download目录下成功生成了相关合同文件PlanName配置为空再下载所有项目合同
+* 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
 
-> 觉得好用，请我喝杯咖啡就成
+
+### 赞助
+
+> 觉得好用，扫码请我喝杯咖啡吧
 
 ![](appreciate.jpg)
 
