@@ -10,6 +10,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const search = require('./search')
 const yooli_contract_prefix = 'yooli_contract_'
 const parse = require('./parse')
+const jsonfile = require('jsonfile')
 require('dotenv').config()
 
 let browser,page,currDate,downloadPath,
@@ -133,14 +134,15 @@ const getContract = async(plan)=>{
         let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
                 let regex = /.*loanId=(\d+)\&loaninvestorId=(\d+)$/,
-                    loanId,loaninvestorId,imageUrl,downloadUrl,match
+                    loanId,loaninvestorId,imageUrl,creditUrl,downloadUrl,match
                 match = regex.exec(a.href)
                 if(match&&match.length==3){
                     loanId = match[1]
                     loaninvestorId = match[2]
                     downloadUrl = a.href
                     imageUrl = `https://www.yooli.com/viewSignature.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
-                    return {loanId,loaninvestorId,downloadUrl,imageUrl}
+                    creditUrl = `https://www.yooli.com/contractCreditRights.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
+                    return {loanId,loaninvestorId,downloadUrl,imageUrl,creditUrl}
                 }
             })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
@@ -299,11 +301,8 @@ const parseDownloadContract = async (plan,contracts)=>{
     for(let contract of contracts){
         try{
             let contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
-            let parsed = await parse.parsePdf(contractFilePath)
-            // if(parsed.signDate){
-            //     parsed.expired = moment(parsed.signDate).add(term, 'M').isBefore(moment())
-            // }
-            contract = Object.assign(contract,parsed)
+            let result = await parse.parsePdf(contractFilePath)
+            contract = Object.assign(contract,result.parsed)
             log.info(`parse ${contract.name} success`)
         }catch(e){
             log.error(`parse ${contract.name} fail:` + e.stack||e)
@@ -320,6 +319,7 @@ const saveContract = async (plan,contracts)=>{
         {id: 'myAmount', title: '我的待收'},
         {id: 'infoUrl', title:'合同链接'},
         {id: 'detailUrl', title:'合同详情链接'},
+        {id: 'creditUrl', title:'债转链接'},
         {id:'planName',title:'定存宝名'},
         {id:'planAmount',title:'定存宝投资额'},
     ]
@@ -348,6 +348,7 @@ const saveContract = async (plan,contracts)=>{
         header: header
     });
     await csvWriter.writeRecords(contracts)
+    await jsonfile.writeFileSync(PlanPath + '/contracts.json',contracts, { spaces: 2 })
     if(SaveSearch){
         try{
             await search.batchSave(yooli_contract_prefix + currDate,contracts)

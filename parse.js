@@ -1,18 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const log = require('simple-node-logger').createSimpleLogger();
 const PdfReader = require("pdfreader").PdfReader;
-require('dotenv').config()
-
+const moment = require('moment')
 
 const parseSignDate = (lines)=>{
     let regex = /由以下各方于\s+(.*?)\s+签订/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            result = result[1].replace(/年|月/g,'-')
-            result = result.replace(/日/g,'')
-            return result;
+        if(result){
+            if(result.length==2){
+                return parseDate(result[1])
+            }
         }
     }
 }
@@ -21,8 +19,9 @@ const parseBorrowerName = (lines)=>{
     let regex = /甲方.*：(.*?)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            return result[1]
+        if(result){
+            if(result.length==2)
+                return result[1]
         }
     }
 }
@@ -31,18 +30,20 @@ const parseBorrowerYooliId = (lines)=>{
     let regex = /用户名：(.*?)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            return result[1]
+        if(result){
+            if(result.length==2)
+                return result[1]
         }
     }
 }
 
 const parseBorrowerId = (lines)=>{
-    let regex = /身份证号码：\s*(\d{2}.*?)$|身份证号码（自然人）：\s*(\d{2}.*?)$/,result
+    let regex = /身份证号码：\s*(\d{2}.*?)$|身份证号码（自然人）：\s*(\d{2}.*?)$|社会信用代码.*?：\s*(\d{2}.*?)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&(result.length==2||result.length==3)){
-            return result[result.length-1]||result[result.length-2]
+        if(result){
+            if(result.length==2||result.length==3||result.length==4)
+                return result[result.length-1]||result[result.length-2]||result[result.length-3]
         }
     }
 }
@@ -51,8 +52,10 @@ const parseContractType = (lines)=>{
     let regex = /注：还款方式为“(.*?)”的，适用上述表格/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&result.length==2){
-            return result[1]
+        if(result){
+            if(result.length==2) {
+                return result[1]
+            }
         }
     }
 }
@@ -83,9 +86,11 @@ const parseAssurance = (lines)=>{
     let regex = /丁方:(.*)$|丁方：(.*)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&(result.length==2||result.length==3)){
-            result = result[result.length-1]||result[result.length-2]
-            return result.replace('（','')
+        if(result){
+            if(result.length==2||result.length==3){
+                result = result[result.length-1]||result[result.length-2]
+                return result.replace('（','')
+            }
         }
     }
 }
@@ -94,23 +99,59 @@ const parseLender = (lines)=>{
     let regex = /丙方：(.*)$/,result
     for(let line of lines){
         result = regex.exec(line)
-        if(result&&(result.length==2||result.length==3)){
-            result = result[result.length-1]||result[result.length-2]
-            return result.replace('（','')
+        if(result){
+            if(result.length==2||result.length==3){
+                result = result[result.length-1]||result[result.length-2]
+                return result.replace('（','')
+            }
+        }
+    }
+}
+
+const parseDate = (date)=>{
+    return date.replace(/年|月/g,'-').replace(/日/g,'')
+}
+
+const parseContractDate = (lines)=>{
+    let regex = /(.*?)起，至\s*(.*?)止/,result,beginDate,endDate
+    for(let line of lines){
+        result = regex.exec(line)
+        if(result){
+            if(result.length==3){
+                beginDate = parseDate(result[1])
+                endDate = parseDate(result[2])
+                return {beginDate,endDate};
+            }
         }
     }
 }
 
 const parseAll = (lines)=>{
-    let signDate = parseSignDate(lines)
-    let borrowerName = parseBorrowerName(lines)
-    let borrowerYooliID = parseBorrowerYooliId(lines)
-    let borrowerID = parseBorrowerId(lines)
-    let contractType = parseContractType(lines)
-    let myLends = parseMyLends(lines)
-    let lender = parseLender(lines)
-    let assurance = parseAssurance(lines)
-    return {signDate,borrowerName,borrowerYooliID,borrowerID,contractType,myLends,lender,assurance}
+    const PersonalType = '个人'
+    let signDate,borrowerName,borrowerType=PersonalType,
+        borrowerYooliID,borrowerID,contractType,myLends,lender,assurance,contractDate,suspect= false,expired=false
+    signDate = parseSignDate(lines)
+    borrowerName = parseBorrowerName(lines)
+    if(borrowerName.match('公司')){
+        borrowerType = '公司'
+    }
+    if(borrowerType==PersonalType){
+        borrowerYooliID = parseBorrowerYooliId(lines)
+    }
+    borrowerID = parseBorrowerId(lines)
+    contractType = parseContractType(lines)
+    myLends = parseMyLends(lines)
+    if(!myLends||myLends.length==0){
+        myLends = undefined
+        suspect = true
+    }
+    lender = parseLender(lines)
+    assurance = parseAssurance(lines)
+    contractDate = parseContractDate(lines)
+    if(contractDate&&contractDate.endDate){
+        expired = moment(contractDate.endDate).isBefore(moment())
+    }
+    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,lender,assurance,suspect,expired})
 }
 
 const parsePdf = async (filePath)=>{
@@ -119,36 +160,14 @@ const parsePdf = async (filePath)=>{
         new PdfReader().parseFileItems(filePath, function(err, item) {
             if (err) reject(err);
             else if (!item) {
-                // console.log(JSON.stringify(lines,null,2))
                 parsed = parseAll(lines)
-                resolve(parsed);
+                resolve({parsed,lines});
             }
             else if (item.text) {
                 lines.push(item.text)
             }
         });
     })
-}
-
-const parse = async (datePath)=>{
-    datePath = datePath || process.env['ParseDate']
-    let downloadPath = path.resolve('./download/' + datePath),contracts= []
-    if (fs.existsSync(downloadPath)) {
-        let planFiles = fs.readdirSync(downloadPath)
-        for (let plan of planFiles) {
-            let contractFiles = fs.readdirSync(downloadPath + '/' + plan)
-            for(let contractFile of contractFiles){
-                let filePath = downloadPath + '/' + plan + '/' + contractFile
-                let match = /^loanagreement_(.*)\.pdf$/.exec(contractFile)
-                if (match&&match.length==2) {
-                    let contract = await parsePdf(filePath,plan,match[1])
-                    contracts.push(contract)
-                }
-            }
-        }
-        console.log(JSON.stringify(contracts,null,2))
-        return contracts
-    }
 }
 
 module.exports = {parsePdf}
