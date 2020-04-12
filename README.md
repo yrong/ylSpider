@@ -43,7 +43,7 @@ npm run download//一键下载合同
 
 ### 小tips
 
-* windows环境封装了一键安装脚本,解压[安装包地址](https://gitee.com/ronyang1997/ylSpider/attach_files/371965/download)后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* windows环境封装了一键安装脚本,解压[安装包地址](https://gitee.com/ronyang1997/ylSpider/attach_files/371967/download)后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
 * 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
