@@ -34,7 +34,7 @@ npm install
 
 ```
 npm run init//初始化elasticsearch
-npm run download//一键下载合同（平台封闭了下载接口,目前只能下载明细数据）
+npm run download//一键下载合同
 ```
 
 ### 生成表格文件示例
