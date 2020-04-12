@@ -231,23 +231,40 @@ const getContractDetail = async (plan,contracts)=>{
     return contracts
 }
 
+let downloadToken;
+
+const getDownloadToken = async (url,force)=>{
+    while(!downloadToken){
+        await page.goto(url,loadPageOption)
+        const response = await page.waitForResponse(response => response.url() === 'https://www.yooli.com/rest/slideVerify/verifyX' && response.status() === 200);
+        let json = await response.json()
+        if(json.verify){
+            downloadToken = json.resultCode
+            return downloadToken
+        }
+        await sleep(500)
+    }
+}
+
 const downloadContract = async (plan,contracts)=>{
-    let cnt = 0,retryContracts = [];
-    const DownloadTipSelector = "div#downloadDialog div#downloadConfirmDesc span#signAuthCodeTipAuto i.green-proper"
+    let retryContracts = [];
     const VerifyCodeSelector = "div.slide-btn"
     const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
     let PlanPath = downloadPath + "/" + plan.planName
     await mkdirp(PlanPath)
 
     if(DownloadPolicy=='pdf') {
+        await getDownloadToken(contracts[0].downloadUrl)
         for(let contract of contracts){
             try{
-                await page.goto(contract.downloadUrl,loadPageOption)
-                await page.waitForSelector(VerifyCodeSelector);
-                await page.waitForSelector(VerifyCodeSelector,{hidden: true});
-                log.info(`contract ${contract.name} download success`)
+                await page.goto(contract.downloadUrl + `&token=${downloadToken}`,loadPageOption)
+                // await page.waitForSelector(VerifyCodeSelector);
+                // await page.waitForSelector(VerifyCodeSelector,{hidden: true});
+                log.error(`contract ${contract.name} download fail,will retry`)
+                await sleep(DownloadInterval)
             }catch(e){
-                log.error(`contract ${contract.name} download fail:` + e.stack||e)
+                log.info(`contract ${contract.name} download success`)
+                await sleep(500)
             }
         }
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
