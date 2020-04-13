@@ -71,10 +71,13 @@ if (Get-Command pm2 -errorAction SilentlyContinue) {
 write-host "generate env file from template"
 ((Get-Content -path .env.example -Encoding UTF8) -replace 'ronyang',$env:UserName) | Out-File -Encoding UTF8 .env
 
-write-host "install application as service"
-npm install
-pm2 reload ecosystem.config.js
-pm2-startup install
-pm2 save
+npm install --only=prod
+$installApplicationAsService=$false
+if ($installApplicationAsService) {
+    write-host "install application as service"
+    pm2 reload ecosystem.config.js
+    pm2-startup install
+    pm2 save
+}
 
 write-host "Done !"
