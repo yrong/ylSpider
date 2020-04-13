@@ -81,8 +81,9 @@ const getPlans = async ()=>{
         return await page.$$eval(planSelector, plans => {
             return plans.map(plan => {
                 let dataId = plan.getAttribute("data-text")
-                let pos = dataId.indexOf(':'),length = dataId.length
-                return {planId:dataId.substr(0,pos),planName:dataId.substr(pos+1,length)}
+                let pos = dataId.indexOf(':'), planId=dataId.substr(0,pos),
+                    planName = dataId.replace(':','-')
+                return {planId,planName}
             })});
     }
     let plans = await getPlanInPage()
@@ -170,8 +171,15 @@ const getContract = async(plan)=>{
             log.error(e.stack||e)
         }
     }
+    //deduplicate by infoUrl
+    let contractObj = {},deduplicated = []
+    for(let contract of contracts){
+        contractObj[contract.infoUrl] = contract
+    }
+    for (let key in contractObj)
+        deduplicated.push(contractObj[key]);
     log.info(`get contract in plan ${plan.planName} success`)
-    return contracts
+    return deduplicated
 }
 
 const getContractDetail = async (plan,contracts)=>{
@@ -384,9 +392,15 @@ const saveContract = async (plan,contracts)=>{
 const downloadContracts = async ()=>{
     let plans = await getPlans()
     if(PlanName){
-        let todo = PlanName.split(',')
+        let todos = PlanName.split(','),find
         plans = plans.filter((plan)=>{
-            return todo.includes(plan.planName)
+            find = false;
+            for(let todo of todos){
+                find = plan.planName.includes(todo)
+                if(find)
+                    break;
+            }
+            return find;
         })
     }
     for(let plan of plans){
