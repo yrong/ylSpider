@@ -227,7 +227,6 @@ const getContractDetail = async (plan,contracts)=>{
             log.error(`fail to get detail of contract ${contract.name} in plan ${plan.planName}`)
         }
     }
-    log.info(`get contract detail in plan ${plan.planName} success`)
     return contracts
 }
 
@@ -394,6 +393,7 @@ const downloadContracts = async ()=>{
         let contracts = await getContract(plan)
         if(!SkipDetail){
             contracts = await getContractDetail(plan,contracts)
+            log.info(`get contract detail in plan ${plan.planName} success`)
         }
         if(!SkipDownload){
             await downloadContract(plan,contracts)

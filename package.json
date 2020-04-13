@@ -4,10 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "init": "node init.js",
-    "start": "node main.js",
-    "cron": "node cron.js",
-    "download": "node download.js",
+    "init": "node dist/init.js",
+    "download": "node dist/download.js",
     "release": "sh release.sh"
   },
   "keywords": [],
@@ -33,5 +31,16 @@
     "pdfreader": "^1.0.6",
     "puppeteer-core": "^2.1.1",
     "simple-node-logger": "^18.12.24"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/plugin-transform-runtime": "^7.9.0",
+    "@babel/preset-env": "^7.9.5",
+    "@babel/polyfill": "^7.8.7",
+    "babel-loader": "^8.1.0",
+    "uglifyjs-webpack-plugin": "^2.2.0",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11",
+    "webpack-node-externals": "^1.7.2"
   }
 }

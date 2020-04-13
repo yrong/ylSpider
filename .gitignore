@@ -6,4 +6,5 @@ download
 *.log
 test/test.js
 release.zip
+dist
 
