@@ -62,7 +62,7 @@ const retrieve = async (index,params)=>{
     let query = params.uuid?`uuid:${params.uuid}`:(params.keyword?params.keyword:'*');
     let _source = params.source?params.source:true;
     params.page = (params.page&&parseInt(params.page))||1
-    params.per_page = (params.per_page&&parseInt(params.per_page))||1000
+    params.per_page = (params.per_page&&parseInt(params.per_page))||10000
     let from = (params.page-1)*params.per_page
     let params_pagination = {"from":from,"size":params.per_page}
     let queryObj = params.body?{body:params.body}:{q:query}
@@ -76,7 +76,7 @@ const retrieve = async (index,params)=>{
     },queryObj,params_pagination)
     let result = await client.search(searchObj)
     if(params.aggs){
-        result = result.body.aggregations
+        result = {count:result.body.hits.total.value,aggs:result.body.aggregations}
     }else{
         result =  {count:result.body.hits.total.value,results:result.body.hits.hits.map((result)=>result._source)}
     }
@@ -97,4 +97,9 @@ const batchSave = async (index,items)=>{
     return await client.bulk({body:bulks,refresh:true})
 }
 
-module.exports = {init,save,retrieve,batchSave}
+const cat = async (index)=>{
+    let result = await client.cat.indices({index,format:'json'})
+    return result.body.map((index)=>index.index)
+}
+
+module.exports = {init,save,retrieve,batchSave,cat}

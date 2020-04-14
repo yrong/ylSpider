@@ -11,7 +11,6 @@ const search = require('./search')
 const yooli_contract_prefix = 'yooli_contract_'
 const parse = require('./parse')
 const jsonfile = require('jsonfile')
-require('dotenv').config()
 
 let browser,page,currDate,downloadPath,
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
@@ -429,6 +428,6 @@ const download = async (username,passwd)=>{
     return currDate
 }
 
-module.exports = {download}
+module.exports = {download,yooli_contract_prefix}
 
 

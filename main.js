@@ -1,3 +1,4 @@
+require('dotenv').config()
 const Koa = require('koa')
 const koaBody = require('koa-body')
 const cors = require('kcors')
@@ -16,7 +17,7 @@ app.use(koaBody({
     parsedMethods: ['POST', 'PUT', 'PATCH', 'DELETE'],
     multipart: true,
     formidable: {
-        uploadDir: './attachments'
+        uploadDir: './download'
     },
 }));
 
@@ -38,7 +39,6 @@ app.use(async function(ctx, next) {
 
 
 app.use((statics('./public')))
-app.use((staticFolder('./download')))
 
 router.use('/api', apis.routes(), apis.allowedMethods());
 app.use(router.routes());

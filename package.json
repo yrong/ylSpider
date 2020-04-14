@@ -6,6 +6,7 @@
   "scripts": {
     "init": "node dist/init.js",
     "download": "node dist/download.js",
+    "app": "node dist/app.js",
     "release": "sh release.sh"
   },
   "keywords": [],
@@ -25,7 +26,6 @@
     "koa-mount": "^4.0.0",
     "koa-router": "^7.4.0",
     "koa-static": "^5.0.0",
-    "koa-static-folder-fork": "^0.1.6",
     "mkdirp": "^1.0.3",
     "moment": "^2.24.0",
     "node-cron": "^2.0.3",

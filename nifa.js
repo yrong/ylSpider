@@ -65,6 +65,12 @@ const gather = async (refresh)=>{
                             case 9:
                                 row.curr_loaner_num = parseInt(col) //当前借款人数量(人)
                                 break;
+                            case 14:
+                                row.overdue = parseInt(col) //逾期金额(万元)
+                                break;
+                            case 15:
+                                row.overdue_num = parseInt(col) //逾期笔数
+                                break;
                             case 18:
                                 row.total_pay = parseInt(col) //累计代偿金额(万元)
                                 break;

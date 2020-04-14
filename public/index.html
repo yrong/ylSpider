@@ -5,10 +5,13 @@
     <title>有利数据分析表</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="bootstrap-table.min.css">
+    <link rel="stylesheet" href="spin.css">
     <link rel="stylesheet" href="main.css">
     <link rel="manifest" href="/manifest.json">
     <script src="jquery-3.4.1.min.js"></script>
     <script src="bootstrap.bundle.min.js"></script>
+    <script src="bootstrap-table.min.js"></script>
     <script src="Chart.bundle.js"></script>
     <script src="moment.min.js"></script>
     <script src="utils.js"></script>
@@ -17,45 +20,44 @@
 
 <body>
     <div class="container-fluid">
-
-
         <ul class="nav nav-tabs">
             <li class="nav-item">
                 <a class="nav-link active" data-toggle="tab" href="#nifa">互金信批数据</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-toggle="tab" href="#yooli">官网成交数据</a>
+                <a class="nav-link" data-toggle="tab" href="#contractDownload">合同下载</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-toggle="tab" href="#contract">官网合同下载</a>
+                <a class="nav-link" data-toggle="tab" href="#contract">合同数据展示</a>
             </li>
         </ul>
 
         <div class="tab-content">
             <div class="tab-pane active" id="nifa">
-                <canvas id="nifa_canvas"></canvas>
-                <select id="nifa_dimension">
-                    <option value="curr_loan">借贷余额(万元)</option>
-                    <option value="curr_borrower_num">当前出借人数量(人)</option>
-                    <option value="curr_loaner_num">当前借款人数量(人)</option>
-                    <option value="total_pay">累计代偿金额(万元)</option>
-                    <option value="total_pay_num">累计代偿笔数(笔)</option>
-                    <option value="total">累计借贷金额(万元)</option>
-                    <!--option value="total_loan_num">累计借贷笔数(笔)</option>
-                    <option value="total_borrow_num">累计出借笔数(笔)</option>
-                    <option value="curr_loan_num">借贷余额笔数(笔)</option>
-                    <option value="total_borrower_num">累计出借人数量(人)</option>
-                    <option value="total_loaner_num">累计借款人数量(人)</option-->
-                </select>
+                <div class="container">
+                    <div class="row">
+                        <canvas id="nifa_canvas"></canvas>
+                    </div>
+                    <div class="row">
+                        <select id="nifa_dimension">
+                            <option value="curr_loan">借贷余额(万元)</option>
+                            <option value="curr_borrower_num">当前出借人数量(人)</option>
+                            <option value="curr_loaner_num">当前借款人数量(人)</option>
+                            <option value="total_pay">累计代偿金额(万元)</option>
+                            <option value="total_pay_num">累计代偿笔数(笔)</option>
+                            <option value="overdue">逾期金额(万元)</option>
+                            <option value="overdue_num">逾期笔数</option>
+                            <option value="total">累计借贷金额(万元)</option>
+                            <!--option value="total_loan_num">累计借贷笔数(笔)</option>
+                            <option value="total_borrow_num">累计出借笔数(笔)</option>
+                            <option value="curr_loan_num">借贷余额笔数(笔)</option>
+                            <option value="total_borrower_num">累计出借人数量(人)</option>
+                            <option value="total_loaner_num">累计借款人数量(人)</option-->
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div class="tab-pane" id="yooli">
-                <canvas id="yooli_canvas"></canvas>
-                <select id="yooli_dimension">
-                    <option value="total_money">交易总额</option>
-                    <option value="total_borrow_users">出借人数量</option>
-                </select>
-            </div>
-            <div class="tab-pane" id="contract">
+             <div class="tab-pane" id="contractDownload">
                 <div class="container">
                     <div class="row">
                         <div class="col-sm-9 col-md-7 col-lg-5 mx-auto">
@@ -74,13 +76,60 @@
                                         </div>
 
 
-                                        <button class="btn btn-lg btn-primary btn-block text-uppercase" id="downloadContract" type="submit">下载</button>
+                                        <button class="btn btn-primary btn-lg" id="downloadContract" type="submit">下载</button>
 
                                     </form>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+             </div>
+            <div class="tab-pane" id="contract">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <span style="white-space: nowrap">
+                                <label for="contractIndex">备份日期:</label>
+                                <select id="contractIndex"></select>
+                            </span>
+                        </div>
+                        <div class="col-md-2">
+                            <button id="analysisBtn" type="button" class="btn btn-primary btn-sm">分析</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <table id="contractTbl"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="analysisDlg" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="myModalLabel">分析结果</h4>
+                </div>
+                <div class="modal-body">
+                    按出借日期(年)汇总:
+                    <p id="by_date">
+                    </p>
+                    按出借金额汇总:
+                    <p id="by_amount">
+                    </p>
+                    按逾期状态汇总:
+                    <p id="by_expired">
+                    </p>
+                    按出借人类型汇总:
+                    <p id="by_borrowerType">
+                    </p>
+                    按合同类型汇总:
+                    <p id="by_contractType">
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
                 </div>
             </div>
         </div>

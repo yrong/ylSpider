@@ -29,13 +29,13 @@ if(choco list -lo | Where-object { $_.ToLower().StartsWith("GoogleChrome".ToLowe
 	refreshenv
 }
 
-$useSearchService=$false
+$useSearchService=$true
 if ($useSearchService) {
 	write-host "install jdk and elasticsearch by chocolatey"
 	if (Get-Command java -errorAction SilentlyContinue) {
 		write-host "java detected,ignore install"
 	}else{
-		choco install -y jdk8
+		choco install -y jre8
 		refreshenv
 		choco install -y elasticsearch
 		refreshenv
@@ -80,4 +80,4 @@ if ($installApplicationAsService) {
     pm2 save
 }
 
-write-host "Done !"
+write-host "安装完成,配置.env后本窗口内运行"npm run download"可下载合同"

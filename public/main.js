@@ -1,7 +1,7 @@
 const nifaLineChart = ()=>{
-    const labels = ['2020-2','2020-1', '2019-12', '2019-11', '2019-10', '2019-9', '2019-8', '2019-7',
+    const labels = ['2020-3','2020-2','2020-1', '2019-12', '2019-11', '2019-10', '2019-9', '2019-8', '2019-7',
         '2019-6','2019-5','2019-4','2019-3','2019-2','2019-1','2018-12','2018-11',
-        '2018-10','2018-9','2018-8','2018-7'].reverse();
+        '2018-10','2018-9','2018-8'].reverse();
 
     let lineChartData = {
         labels: labels,
@@ -126,19 +126,18 @@ const yooliLineChart = ()=>{
     });
 }
 
-function download(url) {
-    let element = document.createElement('a');
-    element.setAttribute('href', url);
-    element.setAttribute('download', 'contracts.json');
-    document.body.appendChild(element);
-    element.click();
-    setTimeout(function() {
-        URL.revokeObjectURL(element.href);
-    }, 0);
-    document.body.removeChild(element);
-}
-
 const initDownloadAction = ()=>{
+    function download(url) {
+        let element = document.createElement('a');
+        element.setAttribute('href', url);
+        element.setAttribute('download', 'contracts.json');
+        document.body.appendChild(element);
+        element.click();
+        setTimeout(function() {
+            URL.revokeObjectURL(element.href);
+        }, 0);
+        document.body.removeChild(element);
+    }
     $('#downloadContract').click((evt)=>{
         evt.stopPropagation()
         let username = $('#username').val()
@@ -158,8 +157,118 @@ const initDownloadAction = ()=>{
     })
 }
 
+const initContractTable = () => {
+    let colDef = [{
+        field: 'id',
+        title: '合同编号'
+    }, {
+        field: 'beginDate',
+        title: '开始日期',
+        sortable: true
+    }, {
+        field: 'endDate',
+        title: '结束日期',
+        sortable: true
+    }, {
+            field: 'borrowerName',
+            title: '借款人名'
+    }, {
+            field: 'borrowerType',
+            title: '借款人类型',
+             sortable: true
+    }, {
+            field: 'myAmount',
+            title: '出借金额',
+            sortable: true
+    },{
+        field: 'expired',
+        title: '是否逾期',
+        sortable: true
+    },{
+        field: 'borrowerID',
+        title: '借款人证件号'
+    },{
+        field: 'borrowerYooliID',
+        title: '借款人有利编号',
+        sortable: true
+    }, {
+            field: 'assurance',
+            title: '担保方'
+    }, {
+            field: 'detailUrl',
+            title: '合同链接'
+    },{
+        field: 'myLends',
+        title: '实际出借金额',
+        width: '20'
+    }, {
+            field: 'creditUrl',
+            title: '债转链接'
+    }]
+    $('#contractTbl').bootstrapTable({
+        columns: colDef,
+        pagination: true,
+        pageSize:200,
+        pageList:[50,100,200,500,'All'],
+        search: true,
+        searchAlign: 'left'
+    })
+    $.get('/api/contract_index', function (data) {
+        $('#contractIndex').find('option').remove()
+        if (data && data.length) {
+            $.each(data, function (index, value) {
+                $('#contractIndex').append(new Option(value, value));
+            })
+            $.get('/api/contract/' + data[0], function (contract) {
+                $('#contractTbl').bootstrapTable('load', contract.results)
+            })
+        }
+    })
+
+    $('#contractIndex').change(function() {
+        let index = this.value;
+        $.get('/api/contract/' + index, function (contract) {
+            $('#contractTbl').bootstrapTable('load', contract.results)
+        })
+    });
+
+    $('#analysisBtn').click(()=>{
+        let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},expiredObj = {},
+            borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
+        $.get('/api/contract_analysis/' + index, function (result) {
+            let data = result.aggs,count = result.count;
+            for(let bucket of data.assurance.buckets){
+                assuranceObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
+            }
+            for(let bucket of data.beginDate.buckets){
+                beginDateObj[bucket['key_as_string']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
+            }
+            for(let bucket of data.expired.buckets){
+                let key = bucket['key']==1?'逾期':"未逾期"
+                expiredObj[key] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+            }
+            for(let bucket of data.borrowerType.buckets){
+                borrowerTypeObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+            }
+            for(let bucket of data.myAmount.buckets){
+                myAmountObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+            }
+            for(let bucket of data.contractType.buckets){
+                contractTypeObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+            }
+            $('#analysisDlg #by_date').html(JSON.stringify(beginDateObj))
+            $('#analysisDlg #by_amount').html(JSON.stringify(myAmountObj))
+            $('#analysisDlg #by_expired').html(JSON.stringify(expiredObj))
+            $('#analysisDlg #by_borrowerType').html(JSON.stringify(borrowerTypeObj))
+            $('#analysisDlg #by_contractType').html(JSON.stringify(contractTypeObj))
+            $('#analysisDlg').modal()
+        })
+
+    })
+}
+
 window.onload = function() {
     nifaLineChart();
-    yooliLineChart();
     initDownloadAction();
+    initContractTable();
 };
