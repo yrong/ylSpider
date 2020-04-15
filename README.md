@@ -51,9 +51,12 @@ npm run app//启动数据分析服务,访问http://localhost:8080/(需要安装e
 
 * windows环境封装了一键安装脚本,解压安装包后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
+* 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,将所有合同拷贝到当前目录的download/all子目录下
+
 * 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
 * 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
+
 
 
 ### 赞助

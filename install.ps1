@@ -114,5 +114,6 @@ if ($installSearchService -eq 'y') {
 	$x = $x -replace 'SaveSearch=false', 'SaveSearch=true'
 }
 Set-Content -Path .env -Value $x -Encoding UTF8
+New-Item -ItemType Directory -Force -Path .\download\all
 
 write-host "install finished,config .env file then type ""npm run download"" to download contract"

@@ -12,7 +12,7 @@ const yooli_contract_prefix = 'yooli_contract_'
 const parse = require('./parse')
 const jsonfile = require('jsonfile')
 
-let browser,page,currDate,downloadPath,
+let browser,page,currDate,downloadPath,downloadAllPath,allContracts=[],
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
     ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
@@ -40,7 +40,11 @@ const init = async ()=>{
     await page.setDefaultTimeout(DefaultTimeout)
     currDate = new Date().toISOString().replace(/(T.+)/,'').replace(/\-/g,'')
     downloadPath = path.resolve("download",currDate)
-    await mkdirp(downloadPath)
+    downloadAllPath = path.resolve("download","all")
+    await mkdirp(downloadAllPath)
+    if (fs.existsSync(downloadAllPath + '/contracts.json')) {
+        allContracts = jsonfile.readFileSync(downloadAllPath + '/contracts.json')
+    }
 }
 
 const login = async (username,passwd)=>{
@@ -239,42 +243,42 @@ const getContractDetail = async (plan,contracts)=>{
 
 let downloadToken;
 
-const getDownloadToken = async (url,force)=>{
-    while(!downloadToken){
-        await page.goto(url,loadPageOption)
-        const response = await page.waitForResponse(response => response.url() === 'https://www.yooli.com/rest/slideVerify/verifyX' && response.status() === 200);
-        let json = await response.json()
-        if(json.verify){
-            downloadToken = json.resultCode
-            return downloadToken
-        }
-        await sleep(500)
+const getDownloadToken = async (url)=>{
+    const response = await page.waitForResponse(response => response.url() === url && response.status() === 200);
+    let json = await response.json()
+    if(json.verify){
+        downloadToken = json.resultCode
+        return downloadToken
     }
 }
 
 const downloadContract = async (plan,contracts)=>{
-    let retryContracts = [];
+    let retryContracts = [],downloaded;
     const VerifyCodeSelector = "div.slide-btn"
     const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
     let PlanPath = downloadPath + "/" + plan.planName
     await mkdirp(PlanPath)
 
     if(DownloadPolicy=='pdf') {
-        await getDownloadToken(contracts[0].downloadUrl)
+        // await getDownloadToken(contracts[0].downloadUrl)
         for(let contract of contracts){
             try{
-                await page.goto(contract.downloadUrl + `&token=${downloadToken}`,loadPageOption)
-                // await page.waitForSelector(VerifyCodeSelector);
-                // await page.waitForSelector(VerifyCodeSelector,{hidden: true});
-                log.error(`contract ${contract.id} download fail,will retry`)
-                await sleep(DownloadInterval)
+                downloaded = await checkDownloaded(plan,contract)
+                if(!downloaded){
+                    await page.goto(contract.downloadUrl + `&token=${downloadToken}`,loadPageOption)
+                    await page.waitForSelector(VerifyCodeSelector);
+                    // downloadToken = await getDownloadToken('https://www.yooli.com/rest/slideVerify/verifyX')
+                    await page.waitForSelector(VerifyCodeSelector,{hidden: true});
+                    log.info(`contract ${contract.id} download success`)
+                }else{
+                    log.info(`contract ${contract.id} already downloaded,just skip`)
+                }
             }catch(e){
-                log.info(`contract ${contract.id} download success`)
-                await sleep(500)
+                log.error(`contract ${contract.id} download fail,will retry`)
             }
         }
         await sleep(DownloadInterval)
-        retryContracts = await findMissingAndMoveFinished(plan, contracts)
+        retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
         if (retryContracts.length) {
             log.info(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
             await downloadContract(plan, retryContracts)
@@ -296,23 +300,38 @@ const downloadContract = async (plan,contracts)=>{
     }
 }
 
-const findMissingAndMoveFinished = async (plan,contracts)=>{
-    let contractFile,contractId,match,filePath,dstPath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
+const checkDownloaded = async (plan,contract)=>{
+    let exist = false
+    let PlanPath = downloadPath + "/" + plan.planName
+    let contractFile = `loanagreement_${contract.id}.pdf`
+    let tmpPath = ChromeDownloadPath + "/" + contractFile
+    let dstPath = PlanPath + "/" + contractFile
+    let allPath = downloadAllPath + "/" + contractFile
+    if (fs.existsSync(tmpPath)||fs.existsSync(dstPath)||fs.existsSync(allPath)) {
+        exist = true
+    }
+    return exist;
+}
+
+const findMissingAndMoveDownloaded = async (plan,contracts)=>{
+    let contractFile,tmpPath,dstPath,allPath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
     for(let contract of contracts){
-        match = /loanId=(.*?)&loaninvestorId=(.*?)$/.exec(contract.downloadUrl)
-        if(match&&match.length==3){
-            contractId = match[1]
-            contractFile = `loanagreement_${contractId}.pdf`
-            filePath = ChromeDownloadPath + "/" + contractFile
-            dstPath = PlanPath + "/" + contractFile
-            if (!fs.existsSync(filePath)&&!fs.existsSync(dstPath)) {
-                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.id}`)
+        contractFile = `loanagreement_${contract.id}.pdf`
+        tmpPath = ChromeDownloadPath + "/" + contractFile
+        dstPath = PlanPath + "/" + contractFile
+        allPath = downloadAllPath + "/" + contractFile
+        if(!fs.existsSync(dstPath)){
+            if (!fs.existsSync(tmpPath)&&!fs.existsSync(allPath)) {
+                log.error(`maybe download fail,retry contract ${contract.id}`)
                 missingContracts.push(contract)
             }else{
-                if(fs.existsSync(filePath))
+                if(fs.existsSync(tmpPath))
                 {
-                    fs.copyFileSync(filePath, dstPath)
-                    fs.unlinkSync(filePath)
+                    fs.copyFileSync(tmpPath, dstPath)
+                    fs.copyFileSync(tmpPath, allPath)
+                    fs.unlinkSync(tmpPath)
+                }else if(fs.existsSync(allPath)){
+                    fs.copyFileSync(allPath, dstPath)
                 }
             }
         }
@@ -320,16 +339,25 @@ const findMissingAndMoveFinished = async (plan,contracts)=>{
     return missingContracts;
 }
 
+
 const parseDownloadContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,result
+    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,result,exist
     for(let contract of contracts){
-        try{
-            contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
-            result = await parse.parsePdf(contractFilePath)
-            contract = Object.assign(contract,result.parsed)
-            log.info(`contract ${contract.id} parse success`)
-        }catch(e){
-            log.error(`contract ${contract.id} parse fail:` + e.stack||e)
+        exist = allContracts.find((saved)=>{
+            return saved.id === contract.id
+        })
+        if(exist){
+            contract = Object.assign(contract,exist)
+        }else {
+            try{
+                contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
+                result = await parse.parsePdf(contractFilePath)
+                contract = Object.assign(contract,result.parsed)
+                allContracts.push(contract)
+                log.info(`contract ${contract.id} parse success`)
+            }catch(e){
+                log.error(`contract ${contract.id} parse fail:` + e.stack||e)
+            }
         }
     }
     return contracts
@@ -379,6 +407,7 @@ const saveContract = async (plan,contracts)=>{
     });
     await csvWriter.writeRecords(contracts)
     await jsonfile.writeFileSync(PlanPath + '/contracts.json',contracts, { spaces: 2 })
+    await jsonfile.writeFileSync(downloadAllPath + '/contracts.json',allContracts, { spaces: 2 })
     if(SaveSearch){
         try{
             await search.batchSave(yooli_contract_prefix + currDate,contracts)
