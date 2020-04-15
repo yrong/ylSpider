@@ -62,37 +62,46 @@ if ($installApplicationAsService) {
 }
 
 
+write-host "begin to install jdk and elasticsearch"
+$java_version="jdk-13"
+$java_url="https://repo.huaweicloud.com/java/jdk/13+33/jdk-13_windows-x64_bin.exe"
+$elastic_version="7.3.2"
+$elastic_url="https://elasticsearch.thans.cn/downloads/elasticsearch/elasticsearch-$elastic_version-no-jdk-windows-x86_64.zip"
 function refreshJava {
-	$JAVA_HOME="C:\Program Files\Java\jre1.8.0_241"
+	$JAVA_HOME="C:\Program Files\Java\$java_version"
 	$env:JAVA_HOME=$JAVA_HOME
-	$env:Path+=";$JAVA_HOME"
+	$env:Path+=";$JAVA_HOME\bin"
 	refreshenv
 }
-
-$installSearchService = Read-Host "install search service for analysis(y/n)"
+$installSearchService = Read-Host "install search service for analysis?(y/n)"
 if ($installSearchService -eq 'y') {
-	write-host "install jre and elasticsearch by chocolatey"
 	if (Get-Command java -errorAction SilentlyContinue) {
 		write-host "java detected,ignore install"
 	}else{
-		choco install -y jre8
+		$exist = (Test-Path -path "$java_version.exe")
+		if (!$exist) {
+			write-host "download java,please wait..."
+			Invoke-WebRequest -UseBasicParsing -OutFile "$java_version.exe" $java_url
+		}else{
+			write-host "java install package detected,ignore download and just install"
+		}
+		Start-Process "$java_version.exe" -wait -ArgumentList '/s INSTALL_SILENT=1 STATIC=0 AUTO_UPDATE=0 WEB_JAVA=1 WEB_JAVA_SECURITY_LEVEL=H WEB_ANALYTICS=0 EULA=0 REBOOT=0 NOSTARTMENU=0 SPONSORS=0'
 		refreshJava
 	}
-	$exist = choco list -lo |Select-String "elasticsearch"
+	$exist = (Test-Path -path elasticsearch-$elastic_version.zip)
 	if (!$exist) {
-		choco install -y elasticsearch --version 6.7.1
-	}else{
-		write-host "elasticsearch detected,ignore install"
+		write-host "download elasticsearch,please wait..."
+		Invoke-WebRequest -UseBasicParsing -OutFile "elasticsearch-$elastic_version.zip" $elastic_url
+		Expand-Archive -Path elasticsearch-$elastic_version.zip -DestinationPath .
 	}
-	$exist = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
-	if ($exist) {
+	$running = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
+	if ($running) {
 		Write-Host "elasticsearch already running"
 	}
 	else {
 		Write-Host "elasticsearch not running,start"
 		refreshJava
-		$elasticApp = "C:\ProgramData\chocolatey\lib\elasticsearch\tools\elasticsearch-6.7.1"
-		Start-Process -FilePath "$elasticApp\bin\elasticsearch"
+		Start-Process -FilePath "elasticsearch-$elastic_version\bin\elasticsearch"
 	}
 }else{
 	write-host "skip use search service"
