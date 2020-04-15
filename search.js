@@ -76,7 +76,7 @@ const retrieve = async (index,params)=>{
     },queryObj,params_pagination)
     let result = await client.search(searchObj)
     if(params.aggs){
-        result = {count:result.body.hits.total.value,aggs:result.body.aggregations}
+        result = {count:result.body.hits.total.value||result.body.hits.total,aggs:result.body.aggregations}
     }else{
         result =  {count:result.body.hits.total.value,results:result.body.hits.hits.map((result)=>result._source)}
     }
