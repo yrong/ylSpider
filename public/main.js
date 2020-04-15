@@ -233,8 +233,8 @@ const initContractTable = () => {
     });
 
     $('#analysisBtn').click(()=>{
-        let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},expiredObj = {},
-            borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
+        let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},endDateObj={},
+            expiredObj = {}, borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
         $.get('/api/contract_analysis/' + index, function (result) {
             let data = result.aggs,count = result.count;
             for(let bucket of data.assurance.buckets){
@@ -242,6 +242,9 @@ const initContractTable = () => {
             }
             for(let bucket of data.beginDate.buckets){
                 beginDateObj[bucket['key_as_string']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
+            }
+            for(let bucket of data.endDate.buckets){
+                endDateObj[bucket['key_as_string']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
             }
             for(let bucket of data.expired.buckets){
                 let key = bucket['key']==1?'逾期':"未逾期"
@@ -256,7 +259,8 @@ const initContractTable = () => {
             for(let bucket of data.contractType.buckets){
                 contractTypeObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
             }
-            $('#analysisDlg #by_date').html(JSON.stringify(beginDateObj))
+            $('#analysisDlg #by_beginDate').html(JSON.stringify(beginDateObj))
+            $('#analysisDlg #by_endDate').html(JSON.stringify(endDateObj))
             $('#analysisDlg #by_amount').html(JSON.stringify(myAmountObj))
             $('#analysisDlg #by_expired').html(JSON.stringify(expiredObj))
             $('#analysisDlg #by_borrowerType').html(JSON.stringify(borrowerTypeObj))

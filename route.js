@@ -65,6 +65,13 @@ router.get('/contract_analysis/:index',async (ctx,next) =>{
                         "format": "yyyy"
                     }
                 },
+                "endDate" : {
+                    "date_histogram": {
+                        "field": "endDate",
+                        "interval": "year",
+                        "format": "yyyy"
+                    }
+                },
                 "myAmount":{
                     "range":{
                         "field":"myAmount",
