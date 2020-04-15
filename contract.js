@@ -266,10 +266,10 @@ const downloadContract = async (plan,contracts)=>{
                 await page.goto(contract.downloadUrl + `&token=${downloadToken}`,loadPageOption)
                 // await page.waitForSelector(VerifyCodeSelector);
                 // await page.waitForSelector(VerifyCodeSelector,{hidden: true});
-                log.error(`contract ${contract.name} download fail,will retry`)
+                log.error(`contract ${contract.id} download fail,will retry`)
                 await sleep(DownloadInterval)
             }catch(e){
-                log.info(`contract ${contract.name} download success`)
+                log.info(`contract ${contract.id} download success`)
                 await sleep(500)
             }
         }
@@ -326,9 +326,9 @@ const parseDownloadContract = async (plan,contracts)=>{
             contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
             result = await parse.parsePdf(contractFilePath)
             contract = Object.assign(contract,result.parsed)
-            log.info(`parse contract pdf ${contractFilePath} success`)
+            log.info(`contract ${contract.id} parse success`)
         }catch(e){
-            log.error(`parse contract pdf ${contractFilePath} fail:` + e.stack||e)
+            log.error(`contract ${contract.id} parse fail:` + e.stack||e)
         }
     }
     return contracts
