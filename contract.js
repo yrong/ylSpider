@@ -273,6 +273,7 @@ const downloadContract = async (plan,contracts)=>{
                 await sleep(500)
             }
         }
+        await sleep(DownloadInterval)
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
         if (retryContracts.length) {
             log.info(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
