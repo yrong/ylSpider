@@ -5,22 +5,23 @@ ylw数据采集工具
 ## 基本功能
 
 + 互金信批平台月度数据采集
-+ 官网每日出借数据采集
 + 合同一键下载
++ 合同数据分析
 
 
 ## 安装依赖应用
 
 * [chrome](https://www.google.com/intl/zh-CN/chrome/)
 * [nodejs](https://nodejs.org/zh-cn/)
+* [java](https://www.java.com/zh_CN/download/)
 * [elasticsearch](https://www.elastic.co/cn/downloads/elasticsearch)
 
 
 ### 配置
 
-配置文件 | 说明
---- | --- 
-.env.example                 |配置环境变量(主要完成登录配置和chrome浏览器配置,其它配置项参考文件说明)
+|配置文件 | 说明|
+|:------|:-------:| 
+|.env.example                 |配置环境变量参数文件|
 
 .env.example配置完成后重命名为.env
 
