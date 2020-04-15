@@ -30,16 +30,35 @@ if(choco list -lo | Where-object { $_.ToLower().StartsWith("GoogleChrome".ToLowe
 }
 
 $useSearchService=$true
+function refreshJava {
+	$JAVA_HOME="C:\Program Files\Java\jre1.8.0_241"
+	$env:JAVA_HOME=$JAVA_HOME
+	$env:Path+=";$JAVA_HOME"
+	refreshenv
+}
 if ($useSearchService) {
-	write-host "install jdk and elasticsearch by chocolatey"
+	write-host "install jre and elasticsearch by chocolatey"
 	if (Get-Command java -errorAction SilentlyContinue) {
 		write-host "java detected,ignore install"
 	}else{
 		choco install -y jre8
-		refreshenv
-		choco install -y elasticsearch
-		refreshenv
-		Start-Service elasticsearch-service-x64
+		refreshJava
+	}
+	$exist = choco list -lo |Select-String "elasticsearch"
+	if (!$exist) {
+		choco install -y elasticsearch --version 6.7.1
+	}else{
+		write-host "elasticsearch detected,ignore install"
+	}
+	$exist = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
+	if ($exist) {
+    	Write-Host "elasticsearch already running"
+	}
+	else {
+	    Write-Host "elasticsearch not running,start"
+	    refreshJava
+	    $elasticApp = "C:\ProgramData\chocolatey\lib\elasticsearch\tools\elasticsearch-6.7.1"
+	    Start-Process -FilePath "$elasticApp\bin\elasticsearch"
 	}
 }else{
 	write-host "skip use search service"
@@ -80,4 +99,4 @@ if ($installApplicationAsService) {
     pm2 save
 }
 
-write-host "安装完成,配置.env后本窗口内运行"npm run download"可下载合同"
+write-host "install finished,config .env file then type "npm run download" to download contract"
