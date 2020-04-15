@@ -228,10 +228,10 @@ const getContractDetail = async (plan,contracts)=>{
                 expired = moment(payStartDate).add(term, 'M').isBefore(moment())
             }
             contract = Object.assign(contract,{amount,borrowerType,rate,term,payType,payStartDate,expired})
-            log.info(`get contract ${contract.name} detail success`)
+            log.info(`get contract ${contract.id} detail success`)
         }catch (e) {
             log.error(e.stack||e)
-            log.error(`fail to get detail of contract ${contract.name} in plan ${plan.planName}`)
+            log.error(`fail to get detail of contract ${contract.id} in plan ${plan.planName}`)
         }
     }
     return contracts
@@ -275,7 +275,7 @@ const downloadContract = async (plan,contracts)=>{
         }
         retryContracts = await findMissingAndMoveFinished(plan, contracts)
         if (retryContracts.length) {
-            log.info(`retry missing contracts:${retryContracts.map(contract=>contract.name)} in plan ${plan.planName}`)
+            log.info(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
             await downloadContract(plan, retryContracts)
         }
     }
@@ -305,7 +305,7 @@ const findMissingAndMoveFinished = async (plan,contracts)=>{
             filePath = ChromeDownloadPath + "/" + contractFile
             dstPath = PlanPath + "/" + contractFile
             if (!fs.existsSync(filePath)&&!fs.existsSync(dstPath)) {
-                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.name}`)
+                log.error(`${contractFile} not exist,maybe download fail,retry contract ${contract.id}`)
                 missingContracts.push(contract)
             }else{
                 if(fs.existsSync(filePath))
