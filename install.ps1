@@ -51,8 +51,6 @@ if (Get-Command pm2 -errorAction SilentlyContinue) {
 	npm install pm2-windows-startup -g
 }
 
-write-host "generate env file from template"
-((Get-Content -path .env.example -Encoding UTF8) -replace 'ronyang',$env:UserName) | Out-File -Encoding UTF8 .env
 
 npm install --only=prod
 $installApplicationAsService=$false
@@ -100,4 +98,12 @@ if ($installSearchService -eq 'y') {
 	write-host "skip use search service"
 }
 
-write-host "install finished,config .env file then type "npm run download" to download contract"
+write-host "generate env file from template"
+$x = Get-Content -path .env.example -Encoding UTF8
+$x = $x -replace 'ronyang',$env:UserName
+if ($installSearchService -eq 'y') {
+	$x = $x -replace 'SaveSearch=false', 'SaveSearch=true'
+}
+Set-Content -Path .env -Value $x -Encoding UTF8
+
+write-host "install finished,config .env file then type ""npm run download"" to download contract"
