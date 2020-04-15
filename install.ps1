@@ -29,42 +29,6 @@ if(choco list -lo | Where-object { $_.ToLower().StartsWith("GoogleChrome".ToLowe
 	refreshenv
 }
 
-$useSearchService=$true
-function refreshJava {
-	$JAVA_HOME="C:\Program Files\Java\jre1.8.0_241"
-	$env:JAVA_HOME=$JAVA_HOME
-	$env:Path+=";$JAVA_HOME"
-	refreshenv
-}
-if ($useSearchService) {
-	write-host "install jre and elasticsearch by chocolatey"
-	if (Get-Command java -errorAction SilentlyContinue) {
-		write-host "java detected,ignore install"
-	}else{
-		choco install -y jre8
-		refreshJava
-	}
-	$exist = choco list -lo |Select-String "elasticsearch"
-	if (!$exist) {
-		choco install -y elasticsearch --version 6.7.1
-	}else{
-		write-host "elasticsearch detected,ignore install"
-	}
-	$exist = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
-	if ($exist) {
-    	Write-Host "elasticsearch already running"
-	}
-	else {
-	    Write-Host "elasticsearch not running,start"
-	    refreshJava
-	    $elasticApp = "C:\ProgramData\chocolatey\lib\elasticsearch\tools\elasticsearch-6.7.1"
-	    Start-Process -FilePath "$elasticApp\bin\elasticsearch"
-	}
-}else{
-	write-host "skip use search service"
-}
-
-
 write-host "install node by chocolatey"
 if (Get-Command node -errorAction SilentlyContinue) {
 	$node_ver=(Get-Command node | Select-Object -ExpandProperty Version).toString()
@@ -97,6 +61,43 @@ if ($installApplicationAsService) {
     pm2 reload ecosystem.config.js
     pm2-startup install
     pm2 save
+}
+
+
+function refreshJava {
+	$JAVA_HOME="C:\Program Files\Java\jre1.8.0_241"
+	$env:JAVA_HOME=$JAVA_HOME
+	$env:Path+=";$JAVA_HOME"
+	refreshenv
+}
+
+$installSearchService = Read-Host "install search service for analysis(y/n)"
+if ($installSearchService -eq 'y') {
+	write-host "install jre and elasticsearch by chocolatey"
+	if (Get-Command java -errorAction SilentlyContinue) {
+		write-host "java detected,ignore install"
+	}else{
+		choco install -y jre8
+		refreshJava
+	}
+	$exist = choco list -lo |Select-String "elasticsearch"
+	if (!$exist) {
+		choco install -y elasticsearch --version 6.7.1
+	}else{
+		write-host "elasticsearch detected,ignore install"
+	}
+	$exist = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
+	if ($exist) {
+		Write-Host "elasticsearch already running"
+	}
+	else {
+		Write-Host "elasticsearch not running,start"
+		refreshJava
+		$elasticApp = "C:\ProgramData\chocolatey\lib\elasticsearch\tools\elasticsearch-6.7.1"
+		Start-Process -FilePath "$elasticApp\bin\elasticsearch"
+	}
+}else{
+	write-host "skip use search service"
 }
 
 write-host "install finished,config .env file then type "npm run download" to download contract"
