@@ -51,11 +51,12 @@ if (Get-Command pm2 -errorAction SilentlyContinue) {
 	npm install pm2-windows-startup -g
 }
 
-
+write-host "intall depend packages"
 npm install --only=prod
+
 $installApplicationAsService=$false
 if ($installApplicationAsService) {
-    write-host "install application as service"
+    write-host "install cron application as service"
     pm2 reload ecosystem.config.js
     pm2-startup install
     pm2 save
@@ -71,6 +72,7 @@ function refreshJava {
 	$JAVA_HOME="C:\Program Files\Java\$java_version"
 	$env:JAVA_HOME=$JAVA_HOME
 	$env:Path+=";$JAVA_HOME\bin"
+	[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$JAVA_HOME\bin", "Machine")
 	refreshenv
 }
 $installSearchService = Read-Host "install search service for analysis?(y/n)"
@@ -92,6 +94,11 @@ if ($installSearchService -eq 'y') {
 	if (!$exist) {
 		write-host "download elasticsearch,please wait..."
 		Invoke-WebRequest -UseBasicParsing -OutFile "elasticsearch-$elastic_version.zip" $elastic_url
+		Expand-Archive -Path elasticsearch-$elastic_version.zip -DestinationPath .
+	}
+	$exist = (Test-Path -path elasticsearch-$elastic_version)
+	if (!$exist) {
+		write-host "unzip elasticsearch"
 		Expand-Archive -Path elasticsearch-$elastic_version.zip -DestinationPath .
 	}
 	$running = Get-NetTCPConnection -State Listen | Where-Object {$_.LocalPort -eq "9200"}
