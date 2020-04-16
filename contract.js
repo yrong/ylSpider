@@ -386,7 +386,7 @@ const saveContract = async (plan,contracts)=>{
             {id: 'beginDate', title: '合同开始日期'},
             {id: 'endDate', title: '合同结束日期'},
             {id: 'expired', title: '是否逾期'},
-            {id: 'myLendsStr', title: '实际出借'},
+            {id: 'myLendsTotal', title: '实际出借'},
             {id: 'real', title: '是否包含实际出借'},
             {id: 'borrowerType', title: '借款人类型'},
             {id: 'borrowerName', title: '借款人名'},

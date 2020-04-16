@@ -130,7 +130,7 @@ const parseContractDate = (lines)=>{
 const parseAll = (lines)=>{
     const PersonalType = '个人'
     let signDate,borrowerName,borrowerType=PersonalType,
-        borrowerYooliID,borrowerID,contractType,myLends,myLendsStr,
+        borrowerYooliID,borrowerID,contractType,myLends,myLendsTotal,
         lender,assurance,contractDate,real = true,expired=false
     signDate = parseSignDate(lines)
     borrowerName = parseBorrowerName(lines)
@@ -144,7 +144,7 @@ const parseAll = (lines)=>{
     contractType = parseContractType(lines)
     myLends = parseMyLends(lines)
     if(myLends.length>0){
-        myLendsStr = myLends.join(',')
+        myLendsTotal = myLends.reduce((a, b) => a + b, 0)
     }else{
         real = false
         myLends = undefined
@@ -155,7 +155,7 @@ const parseAll = (lines)=>{
     if(contractDate&&contractDate.endDate){
         expired = moment(contractDate.endDate).isBefore(moment())
     }
-    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,myLendsStr,lender,assurance,real,expired})
+    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,myLendsTotal,lender,assurance,real,expired})
 }
 
 const parsePdf = async (filePath)=>{

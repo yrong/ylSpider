@@ -36,7 +36,7 @@ npm install
 ```
 npm run init//初始化elasticsearch
 npm run download//一键下载合同
-npm run app//启动数据分析服务,访问http://localhost:8080/(需要安装elasticsearch并完成合同下载)
+npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始化elasticsearch并完成合同下载)
 ```
 
 ### 合同列表示例

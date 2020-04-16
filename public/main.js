@@ -159,9 +159,6 @@ const initDownloadAction = ()=>{
 
 const initContractTable = () => {
     let colDef = [{
-        field: 'id',
-        title: '合同编号'
-    }, {
         field: 'beginDate',
         title: '开始日期',
         sortable: true
@@ -191,16 +188,18 @@ const initContractTable = () => {
         field: 'borrowerYooliID',
         title: '借款人有利编号',
         sortable: true
+    },{
+        field: 'myLendsTotal',
+        title: '实际出借金额'
     }, {
+        field: 'id',
+        title: '合同编号'
+    },{
             field: 'assurance',
             title: '担保方'
     }, {
             field: 'detailUrl',
             title: '合同链接'
-    },{
-        field: 'myLends',
-        title: '实际出借金额',
-        width: '20'
     }, {
             field: 'creditUrl',
             title: '债转链接'

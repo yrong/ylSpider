@@ -7,6 +7,7 @@ const app = module.exports = new Koa()
 const Router = require('koa-router')
 const router = new Router()
 const apis = require('./route')
+const port = parseInt(process.env['Port'])
 
 app.use(cors())
 app.use(koaBody({
@@ -42,8 +43,8 @@ app.use((statics('./public')))
 router.use('/api', apis.routes(), apis.allowedMethods());
 app.use(router.routes());
 
-if (!module.parent) app.listen(8080,async ()=>{
-    console.log('server started!')
+if (!module.parent) app.listen(port,async ()=>{
+    console.log(`server started,open http://localhost:${port}`)
 });
 
 process.on('uncaughtException', (err) => {

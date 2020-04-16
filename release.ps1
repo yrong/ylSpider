@@ -1,5 +1,5 @@
 webpack
-showdown makehtml -i README.md -o README.html --tables
+showdown makehtml -i README.md -o README.html -u UTF8 --tables
 
 $zipName="release.zip"
 if (Test-Path $zipName) 
