@@ -112,6 +112,9 @@ $x = Get-Content -path .env.example -Encoding UTF8
 $x = $x -replace 'ronyang',$env:UserName
 if ($installSearchService -eq 'y') {
 	$x = $x -replace 'SaveSearch=false', 'SaveSearch=true'
+	write-host "wait elasticsearch to start and init template mapping"
+	Start-Sleep -Second 20
+	npm run init
 }
 Set-Content -Path .env -Value $x -Encoding UTF8
 New-Item -ItemType Directory -Force -Path .\download\all
