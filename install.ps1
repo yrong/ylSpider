@@ -73,6 +73,7 @@ function refreshJava {
 	$env:JAVA_HOME=$JAVA_HOME
 	$env:Path+=";$JAVA_HOME\bin"
 	[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$JAVA_HOME\bin", "Machine")
+	[Environment]::SetEnvironmentVariable("JAVA_HOME", $JAVA_HOME, "Machine")
 	refreshenv
 }
 $installSearchService = Read-Host "install search service for analysis?(y/n)"

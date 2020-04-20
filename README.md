@@ -49,7 +49,7 @@ npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始�
 
 ### 小tips
 
-* windows环境封装了一键安装脚本,解压安装包后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* windows环境封装了一键安装脚本,解压[安装包](https://pan.baidu.com/s/1l-pMAHnYM1Er-XeCF4rKGQ)提取码:4zya后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
 * 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,将所有合同拷贝到当前目录的download/all子目录下
 
