@@ -178,6 +178,10 @@ const initContractTable = () => {
             title: '出借金额',
             sortable: true
     },{
+        field: 'cheat',
+        title: '是否老赖',
+        sortable: true
+    },{
         field: 'expired',
         title: '是否逾期',
         sortable: true
@@ -233,7 +237,7 @@ const initContractTable = () => {
 
     $('#analysisBtn').click(()=>{
         let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},endDateObj={},
-            expiredObj = {}, borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
+            expiredObj = {}, cheatObj = {},borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
         $.get('/api/contract_analysis/' + index, function (result) {
             let data = result.aggs,count = result.count;
             for(let bucket of data.assurance.buckets){
@@ -249,6 +253,10 @@ const initContractTable = () => {
                 let key = bucket['key']==1?'逾期':"未逾期"
                 expiredObj[key] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
             }
+            for(let bucket of data.cheat.buckets){
+                let key = bucket['key']==1?'老赖':"非老赖"
+                cheatObj[key] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+            }
             for(let bucket of data.borrowerType.buckets){
                 borrowerTypeObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
             }
@@ -261,6 +269,7 @@ const initContractTable = () => {
             $('#analysisDlg #by_beginDate').html(JSON.stringify(beginDateObj))
             $('#analysisDlg #by_endDate').html(JSON.stringify(endDateObj))
             $('#analysisDlg #by_amount').html(JSON.stringify(myAmountObj))
+            $('#analysisDlg #by_cheat').html(JSON.stringify(cheatObj))
             $('#analysisDlg #by_expired').html(JSON.stringify(expiredObj))
             $('#analysisDlg #by_borrowerType').html(JSON.stringify(borrowerTypeObj))
             $('#analysisDlg #by_contractType').html(JSON.stringify(contractTypeObj))

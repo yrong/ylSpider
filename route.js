@@ -26,15 +26,15 @@ router.post('/contract',async (ctx,next) =>{
 })
 
 router.get('/contract/:index',async (ctx,next) =>{
-    let index = contract.yooli_contract_prefix + ctx.params.index
+    let index = contract.search_index_prefix + ctx.params.index
     let data = await search.retrieve(index, {})
     ctx.body = data
 })
 
 router.get('/contract_index',async (ctx,next) =>{
-    let result = await search.cat(contract.yooli_contract_prefix + '*')
+    let result = await search.cat(contract.search_index_prefix + '*')
     if(result&&result.length){
-        result = result.map((data)=>data.replace(contract.yooli_contract_prefix,'')).sort().reverse()
+        result = result.map((data)=>data.replace(contract.search_index_prefix,'')).sort().reverse()
     }else{
         result = []
     }
@@ -42,7 +42,7 @@ router.get('/contract_index',async (ctx,next) =>{
 })
 
 router.get('/contract_analysis/:index',async (ctx,next) =>{
-    let index = contract.yooli_contract_prefix + ctx.params.index
+    let index = contract.search_index_prefix + ctx.params.index
     let query = {
         "body":{
             "aggs": {
@@ -57,6 +57,12 @@ router.get('/contract_analysis/:index',async (ctx,next) =>{
                 },
                 "expired": {
                     "terms" : { "field" : "expired" }
+                },
+                "cheat": {
+                    "terms" : { "field" : "cheat" }
+                },
+                "borrowerYooliID": {
+                    "terms" : { "field" : "borrowerYooliID" }
                 },
                 "beginDate" : {
                     "date_histogram": {
