@@ -239,7 +239,7 @@ const initContractTable = () => {
         let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},endDateObj={},
             expiredObj = {}, cheatObj = {},borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
         $.get('/api/contract_analysis/' + index, function (result) {
-            let data = result.aggs,count = result.count;
+            let data = result.aggs,count = result.count,cheatCnt=0;
             for(let bucket of data.assurance.buckets){
                 assuranceObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
             }
@@ -254,8 +254,13 @@ const initContractTable = () => {
                 expiredObj[key] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
             }
             for(let bucket of data.cheat.buckets){
+                if(bucket['key']==0 || bucket['key']==1){
+                    cheatCnt += bucket['doc_count']
+                }
+            }
+            for(let bucket of data.cheat.buckets){
                 let key = bucket['key']==1?'老赖':"非老赖"
-                cheatObj[key] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'
+                cheatObj[key] = Math.round((bucket['doc_count']/cheatCnt)*100*100)/100+ '%'
             }
             for(let bucket of data.borrowerType.buckets){
                 borrowerTypeObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100+ '%'

@@ -12,8 +12,9 @@ const search_index_prefix = 'yooli_contract_'
 const parse = require('./parse')
 const jsonfile = require('jsonfile')
 
-let browser,page,currDate,downloadPath,downloadAllPath,
-    downloadAllFilePath,allContracts=[],jsonFileName = 'contracts.json',
+let browser,page,currDate,downloadPath,downloadAllPath,allBorrowerFilePath,
+    downloadAllFilePath,allContracts=[],allBorrowers=[],
+    allContractFileName = 'contracts.json',allBorrowerFileName = 'borrowers.json',
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
     ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
@@ -27,7 +28,9 @@ let browser,page,currDate,downloadPath,downloadAllPath,
     DefaultTimeout = parseInt(process.env['DefaultTimeout']),
     DownloadPolicy = process.env['DownloadPolicy'],
     SkipParse = (process.env['SkipParse']=='true'),
-    SkipCheatCheck = (process.env['SkipCheatCheck']=='true')
+    SkipCheatCheck = (process.env['SkipCheatCheck']=='true'),
+    CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum']),
+    CheckCheatStartYear = process.env['CheckCheatStartYear']
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,11 +46,14 @@ const init = async ()=>{
     currDate = new Date().toISOString().replace(/(T.+)/,'').replace(/\-/g,'')
     downloadPath = path.resolve("download",currDate)
     downloadAllPath = path.resolve("download","all")
-    downloadAllFilePath = downloadAllPath + '/' + jsonFileName
+    downloadAllFilePath = downloadAllPath + '/' + allContractFileName
+    allBorrowerFilePath = downloadAllPath + '/' + allBorrowerFileName
     await mkdirp(downloadAllPath)
     if (fs.existsSync(downloadAllFilePath)) {
         allContracts = jsonfile.readFileSync(downloadAllFilePath)
-        jsonfile.writeFileSync(downloadAllPath + '/contracts_bak.json',allContracts, { spaces: 2 })
+    }
+    if (fs.existsSync(allBorrowerFilePath)) {
+        allBorrowers = jsonfile.readFileSync(allBorrowerFilePath)
     }
 }
 
@@ -245,14 +251,13 @@ const getContractDetail = async (plan,contracts)=>{
     return contracts
 }
 
-let downloadToken;
 
-const getDownloadToken = async (url)=>{
-    const response = await page.waitForResponse(response => response.url() === url && response.status() === 200);
+const getDownloadToken = async (url,waitUrl)=>{
+    await page.goto(url)
+    const response = await page.waitForResponse(response => response.url() === waitUrl && response.status() === 200);
     let json = await response.json()
     if(json.verify){
-        downloadToken = json.resultCode
-        return downloadToken
+        return json.resultCode
     }
 }
 
@@ -303,14 +308,13 @@ const downloadContract = async (plan,contracts)=>{
     }
 
     if(DownloadPolicy=='pdf') {
-        // await getDownloadToken(contracts[0].downloadUrl)
+        // let downloadToken = await getDownloadToken(contracts[0].downloadUrl,'https://www.yooli.com/rest/slideVerify/verifyX')
         for(let contract of contracts){
             try{
                 downloaded = await checkDownloaded(plan,contract)
                 if(!downloaded){
-                    await page.goto(contract.downloadUrl + `&token=${downloadToken}`,loadPageOption)
+                    await page.goto(contract.downloadUrl,loadPageOption)
                     await page.waitForSelector(VerifyCodeSelector);
-                    // downloadToken = await getDownloadToken('https://www.yooli.com/rest/slideVerify/verifyX')
                     await page.waitForSelector(VerifyCodeSelector,{hidden: true});
                     log.info(`contract ${contract.id} download success`)
                 }else{
@@ -409,8 +413,9 @@ const saveContract = async (plan,contracts)=>{
         header: header
     });
     await csvWriter.writeRecords(contracts)
-    await jsonfile.writeFileSync(PlanPath + '/' + jsonFileName,contracts, { spaces: 2 })
+    await jsonfile.writeFileSync(PlanPath + '/' + allContractFileName,contracts, { spaces: 2 })
     await jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
+    await jsonfile.writeFileSync(allBorrowerFilePath,allBorrowers, { spaces: 2 })
     if(SaveSearch){
         try{
             await search.batchSave(search_index_prefix + currDate,contracts)
@@ -421,20 +426,26 @@ const saveContract = async (plan,contracts)=>{
     log.info(`save contract in plan ${plan.planName} success`)
 }
 
-const IdProvinceMapping = {
-    "11":'京',"12":'津',"13":'冀',"14":'晋',"15":"蒙",
-    "21":"辽","22":'吉',"23":'黑',
-    "31":'沪',"32":'苏',"33":'浙',"34":'皖',"35":'闽',"36":'赣',"37":'鲁',
-    "41":'豫',"42":'鄂',"43":"湘","44":'粤',"45":'桂',"46":'琼',
-    "50":'渝',"51":'川',"52":'贵',"53":'云',"54":'藏',
-    "61":'陕',"62":'甘',"63":'青',"64":'宁',"65":'新'
-}
-
 const findCheat = async(plan,contracts)=>{
+
+    const VerifyCodeInvalid = 'code invalid'
+
+    const IdProvinceMapping = {
+        "11":'京',"12":'津',"13":'冀',"14":'晋',"15":"蒙",
+        "21":"辽","22":'吉',"23":'黑',
+        "31":'沪',"32":'苏',"33":'浙',"34":'皖',"35":'闽',"36":'赣',"37":'鲁',
+        "41":'豫',"42":'鄂',"43":"湘","44":'粤',"45":'桂',"46":'琼',
+        "50":'渝',"51":'川',"52":'贵',"53":'云',"54":'藏',
+        "61":'陕',"62":'甘',"63":'青',"64":'宁',"65":'新'
+    }
+
+    let checkedNum = 0
+
     let sameId = (src,dst)=>{
         return (src.substr(0,2)===dst.substr(0,2))&&(src.substr(src.length-2)===dst.substr(dst.length-2))
     }
-    let needCheck = (contract,info)=>{
+
+    let needCheckID = (contract,borrowerName,info)=>{
         let year = /\(([^)]+)\)/.exec(info)
         if(year&&year.length==2){
             year = year[1]
@@ -462,57 +473,75 @@ const findCheat = async(plan,contracts)=>{
             return false
         }
         let mappingProvince = IdProvinceMapping[contract.borrowerID.substr(0,2)]
-        return year&&year>='2017'&&((province==mappingProvince) || !provinceInEnum(province))
+        return borrowerName===contract.borrowerName&&year&&year>=CheckCheatStartYear&&((province==mappingProvince) || !provinceInEnum(province))
     }
+
     let isIdNum = (id)=>{
         return id.replace(/\s/,'').match(/\d{2}.*?\d{2}$/)
     }
-    let checkId = async (contract,element)=>{
+
+    let findBorrower = (contract)=>{
+        return allBorrowers.find((borrower)=>{
+            let found = false
+            if(contract.borrowerType==='个人'){
+                found = (borrower.borrowerName===contract.borrowerName&&borrower.borrowerYooliID === contract.borrowerYooliID)
+            }else if(contract.borrowerType==='公司'){
+                found = (borrower.borrowerName===contract.borrowerName)
+            }
+            return found
+        })
+    }
+
+    let checkID = async (contract,element)=>{
         let cheat = false,id,target,targetPage;
         const link = await element.$('a');
-        if(link){
-            try{
-                await link.click()
-                target = await browser.waitForTarget(target => target.url() === 'http://zxgk.court.gov.cn/zhzxgk/detailZhcx.do',{timeout:10000});
-                targetPage = await target.page()
-            }catch(err){
-                log.error('reverify code!' + err.stack ||err)
-                await page.click('img#captchaImg')
-                await page.waitForSelector('#yzm-group div.alert-danger',{visible: true});
-                await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
-                return await checkId(contract,element)
-            }
-            try {
-                id = await targetPage.$eval('table tr:nth-child(2) td:nth-child(2)', element => {
+        try{
+            await link.click()
+            target = await browser.waitForTarget(target => target.url() === 'http://zxgk.court.gov.cn/zhzxgk/detailZhcx.do',{timeout:10000});
+            targetPage = await target.page()
+        }catch(err){
+            log.error('captcha invalid!' + err.stack ||err)
+            throw new Error(VerifyCodeInvalid)
+        }
+        id = await targetPage.$eval('table tr:nth-child(2) td:nth-child(2)', element => {
+            return element.innerText
+        })
+        if(!isIdNum(id)){
+            id = await targetPage.$eval('table tr:nth-child(3) td:nth-child(2)', element => {
+                return element.innerText
+            })
+            if(!isIdNum(id)){
+                id = await targetPage.$eval('table tr:nth-child(4) td:nth-child(2)', element => {
                     return element.innerText
                 })
-                if(!isIdNum(id)){
-                    id = await targetPage.$eval('table tr:nth-child(3) td:nth-child(2)', element => {
-                        return element.innerText
-                    })
-                    if(!isIdNum(id)){
-                        id = await targetPage.$eval('table tr:nth-child(4) td:nth-child(2)', element => {
-                            return element.innerText
-                        })
-                    }
-                }
-                if (sameId(id, contract.borrowerID)) {
-                    cheat = true;
-                    log.info(`contract ${contract.id} is cheat!!!`)
-                }
-                await targetPage.close()
-            }catch(err){
-                log.error('check id fail!' + err.stack||err)
             }
         }
+        if (sameId(id, contract.borrowerID)) {
+            cheat = true;
+            log.info(`contract ${contract.id} is cheat!!!`)
+        }
+        await targetPage.close()
         return cheat;
     }
-    let checkIds = async (contract) => {
+
+    let checkIDs = async (contract) => {
         let elements = await page.$$('#result-block #tbody-result tr'),cheat=false;
         for (let [_, element] of elements.entries()) {
+            const borrowerName = await element.$eval('td:nth-child(2)',ele=>ele.innerText)
             const info = await element.$eval('td:nth-child(4)',ele=>ele.innerText)
-            if(needCheck(contract,info)){
-                cheat = await checkId(contract,element)
+            if(needCheckID(contract,borrowerName,info)){
+                try{
+                    cheat = await checkID(contract,element)
+                }catch(err){
+                    if(err.message===VerifyCodeInvalid){
+                        await page.click('img#captchaImg')
+                        await page.waitForSelector('#yzm-group div.alert-danger',{visible: true});
+                        await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
+                    }else{
+                        throw err
+                    }
+                }
+                checkedNum++
                 if(cheat){
                     break
                 }
@@ -520,54 +549,77 @@ const findCheat = async(plan,contracts)=>{
         }
         return cheat
     }
+
+    let saveFileTimer = setInterval(async () => {
+        await saveContract(plan, contracts)
+        log.info('periodical save contracts success')
+    }, 120000);
+
     for(let contract of contracts){
         let exist = allContracts.find((exist)=>{
             return exist.id === contract.id
         })
         if(exist.cheat===undefined){
-            let cheat = false;
-            await page.goto(`http://zxgk.court.gov.cn/zhzxgk/`,loadPageOption);
-            await page.waitForSelector('#pName');
-            await sleep(100)
-            await page.type('#pName', contract.borrowerName);
-            await page.focus('#yzm')
-            await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
-            await page.click('#yzm-group button.btn-zxgk')
-            await page.waitForSelector('#page-div span#totalPage-show');
-            const maxPage = 10
-            let maxPageNum = await page.$eval('#page-div span#totalPage-show', element => {
-                return parseInt(element.innerText)
-            });
-            if(maxPageNum==0){
-                contract.cheat = false
-                exist.cheat = false
-                continue
-            }
-            maxPageNum = Math.min(maxPage,maxPageNum)
-            if(maxPageNum&&contract.borrowerType=='公司'){
-                contract.cheat = false
-                exist.cheat = false
-                continue
-            }
-            for (let i = 0; i < maxPageNum; i++) {
-                cheat = await checkIds(contract)
-                if (cheat || i == maxPageNum - 1) {
-                    break
+            try{
+                let existBorrower = findBorrower(contract)
+                if(existBorrower){
+                    contract.cheat = existBorrower.cheat
+                    exist.cheat = existBorrower.cheat
+                    continue
                 }
-                await page.waitForSelector('#next-btn')
-                await page.click('#next-btn')
-                await sleep(500)
+                let cheat = false;
+                await page.goto(`http://zxgk.court.gov.cn/zhzxgk/`,loadPageOption);
+                await page.waitForSelector('#pName');
+                await page.type('#pName', contract.borrowerName);
+                await sleep(200)
+                await page.focus('#yzm')
+                await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
+                await page.click('#yzm-group button.btn-zxgk')
+                await page.waitForSelector('#page-div span#totalPage-show');
+                let maxPageNum = await page.$eval('#page-div span#totalPage-show', element => {
+                    return parseInt(element.innerText)
+                });
+                if(maxPageNum==0){
+                    cheat = false
+                }
+                else if(maxPageNum&&contract.borrowerType=='公司'){
+                    cheat = true
+                }else{
+                    checkedNum = 0
+                    for (let i = 0; i < maxPageNum; i++) {
+                        cheat = await checkIDs(contract)
+                        if (cheat || i == maxPageNum - 1 || checkedNum>=CheckCheatMaxNum) {
+                            break
+                        }
+                        await page.waitForSelector('#next-btn')
+                        await page.click('#next-btn')
+                        await sleep(500)
+                    }
+                }
+                contract.cheat = cheat
+                exist.cheat = cheat
+                allBorrowers.push(
+                    {
+                        borrowerName: contract.borrowerName,
+                        borrowerType: contract.borrowerType,
+                        borrowerYooliID: contract.borrowerYooliID,
+                        cheat: cheat
+                    }
+                )
+            }catch(err){
+                log.error(`check cheat in contract ${contract.id} fail!` + err.stack ||err)
             }
-            contract.cheat = cheat
-            exist.cheat = cheat
         }
     }
+    clearInterval(saveFileTimer)
 }
 
-const downloadContracts = async ()=>{
-    let plans = await getPlans()
+const download = async (username,passwd)=>{
+    await init()
+    await login(username,passwd)
+    let plans = await getPlans(),todos,find
     if(PlanName){
-        let todos = PlanName.split(','),find
+        todos = PlanName.split(',')
         plans = plans.filter((plan)=>{
             find = false;
             for(let todo of todos){
@@ -593,21 +645,11 @@ const downloadContracts = async ()=>{
             log.info(`parse contract in plan ${plan.planName} success`)
         }
         if(!SkipCheatCheck){
-            setInterval(()=>{
-                jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
-                log.info('periodical save all file success')
-            }, 180000);
             await findCheat(plan,contracts)
             log.info(`check cheat in plan ${plan.planName} success`)
         }
         await saveContract(plan,contracts)
     }
-}
-
-const download = async (username,passwd)=>{
-    await init()
-    await login(username,passwd)
-    await downloadContracts()
     await browser.close()
     return currDate
 }

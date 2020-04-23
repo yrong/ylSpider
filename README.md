@@ -49,9 +49,11 @@ npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始�
 
 ### 小tips
 
-* windows环境封装了一键安装脚本,解压[安装包](https://pan.baidu.com/s/1l-pMAHnYM1Er-XeCF4rKGQ)提取码:4zya后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* windows环境封装了一键安装脚本,解压[安装包](https://pan.baidu.com/s/1dVz5frPhPLEgH40i1FcbDw) 提取码:`n3i2`后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
-* 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,将所有合同拷贝到当前目录的download/all子目录下
+* 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,先将所有合同拷贝到当前目录的download/all子目录下
+
+* 新合同下载和老赖数据提取图片验证码部分仍需手工干预,不过因为是增量方式,已下载的合同和已经校验的老赖后续不会重复验证,不要嫌烦哦
 
 * 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 

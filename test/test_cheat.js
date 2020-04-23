@@ -3,6 +3,8 @@ const puppeteer = require('puppeteer-core');
 const loadPageOption = {waitUntil:'domcontentloaded'}
 let ChromeBinPath = process.env['CHROME_BIN_PATH'],
     DefaultTimeout = parseInt(process.env['DefaultTimeout'])
+const path = require('path')
+const jsonfile = require('jsonfile')
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -17,7 +19,7 @@ const IdProvinceMapping = {
     "61":'陕',"62":'甘',"63":'青',"64":'宁',"65":'新'
 }
 
-const zxgk = async ()=> {
+const checkCheat = async ()=> {
     let browser = await puppeteer.launch({headless: false, slowMo: 50, executablePath:ChromeBinPath});
     let page = await browser.newPage(),cheat,cheats=[];
     await page.setDefaultNavigationTimeout(DefaultTimeout);
@@ -90,6 +92,47 @@ const zxgk = async ()=> {
     }
 }
 
+const delCheat = async ()=>{
+    const filePath = path.resolve("./download",'all','contracts.json')
+    let contracts = jsonfile.readFileSync(filePath)
+    for(let contract of contracts){
+        if(contract.borrowerType==='公司'){
+            delete contract.cheat
+        }
+    }
+    jsonfile.writeFileSync(filePath,contracts,{ spaces: 2 })
+}
+
+const savePeriodical = async ()=>{
+    setInterval(async ()=>{
+        await sleep(5000)
+        console.log('periodical success')
+    }, 1000);
+}
+
+const generateBorrows = async ()=>{
+    const filePath = path.resolve("./download",'all','contracts.json')
+    let contracts = jsonfile.readFileSync(filePath),allBorrowers=[]
+    for(let contract of contracts){
+        if(contract.cheat!=undefined){
+            allBorrowers.push(
+                {
+                    borrowerName: contract.borrowerName,
+                    borrowerType: contract.borrowerType,
+                    borrowerYooliID: contract.borrowerYooliID,
+                    cheat: contract.cheat
+                }
+            )
+        }else{
+            console.log('not check yet')
+        }
+    }
+    jsonfile.writeFileSync('./download/all/borrowers.json',allBorrowers,{ spaces: 2 })
+}
+
 (async() => {
-    await zxgk()
+    // await checkCheat()
+    // await savePeriodical()
+    // await delCheat()
+    await generateBorrows()
 })();
