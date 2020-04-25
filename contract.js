@@ -30,6 +30,7 @@ let browser,page,currDate,downloadPath,downloadAllPath,allBorrowerFilePath,
     SkipParse = (process.env['SkipParse']=='true'),
     SkipCheatCheck = (process.env['SkipCheatCheck']=='true'),
     CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum']),
+    CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum']),
     CheckCheatStartYear = process.env['CheckCheatStartYear']
 
 const sleep = async (ms)=>{
@@ -430,6 +431,8 @@ const findCheat = async(plan,contracts)=>{
 
     const VerifyCodeInvalid = 'code invalid'
 
+    let checkedNum = 0
+
     const IdProvinceMapping = {
         "11":'京',"12":'津',"13":'冀',"14":'晋',"15":"蒙",
         "21":"辽","22":'吉',"23":'黑',
@@ -439,13 +442,21 @@ const findCheat = async(plan,contracts)=>{
         "61":'陕',"62":'甘',"63":'青',"64":'宁',"65":'新'
     }
 
-    let checkedNum = 0
-
     let sameId = (src,dst)=>{
         return (src.substr(0,2)===dst.substr(0,2))&&(src.substr(src.length-2)===dst.substr(dst.length-2))
     }
 
+    let provinceInEnum = (province)=>{
+        for(let key in IdProvinceMapping){
+            if(province == IdProvinceMapping[key]){
+                return true
+            }
+        }
+        return false
+    }
+
     let needCheckID = (contract,borrowerName,info)=>{
+        let check = false
         let year = /\(([^)]+)\)/.exec(info)
         if(year&&year.length==2){
             year = year[1]
@@ -464,16 +475,19 @@ const findCheat = async(plan,contracts)=>{
                 province = province[1].substr(0,1)
             }
         }
-        let provinceInEnum = (province)=>{
-            for(let key in IdProvinceMapping){
-                if(province == IdProvinceMapping[key]){
-                    return true
+        let mappingProvince = IdProvinceMapping[contract.borrowerID.substr(0,2)]
+        if(borrowerName!=contract.borrowerName){
+            check = false
+        }else{
+            if(province==mappingProvince){
+                check = true
+            }else{
+                if(year&&year>=CheckCheatStartYear&&!provinceInEnum(province)){
+                    check = true
                 }
             }
-            return false
         }
-        let mappingProvince = IdProvinceMapping[contract.borrowerID.substr(0,2)]
-        return borrowerName===contract.borrowerName&&year&&year>=CheckCheatStartYear&&((province==mappingProvince) || !provinceInEnum(province))
+        return check
     }
 
     let isIdNum = (id)=>{
@@ -579,6 +593,7 @@ const findCheat = async(plan,contracts)=>{
                 let maxPageNum = await page.$eval('#page-div span#totalPage-show', element => {
                     return parseInt(element.innerText)
                 });
+                maxPageNum = Math.min(maxPageNum,CheckCheatMaxPageNum)
                 if(maxPageNum==0){
                     cheat = false
                 }

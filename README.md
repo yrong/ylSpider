@@ -51,7 +51,7 @@ npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始�
 
 * 数据采集仅针对个人,数据存储在本地不上传汇聚,保证数据隐私性
 
-* windows环境封装了一键安装脚本,解压[安装包](https://pan.baidu.com/s/1TPuNFNLdtFmx2rlQ-9iFWg) 提取码:`7qcv`后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* 不挑系统windows/linux/mac下都能跑,windows环境封装了一键安装脚本,解压[安装包](https://hk5.yrong.space/release.zip) 后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
 
 * 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,先将所有合同拷贝到当前目录的download/all子目录下
 
