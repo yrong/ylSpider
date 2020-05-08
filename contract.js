@@ -155,9 +155,8 @@ const getContract = async(plan)=>{
                     loanId = match[1]
                     loaninvestorId = match[2]
                     downloadUrl = a.href
-                    imageUrl = `https://www.yooli.com/viewSignature.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
                     creditUrl = `https://www.yooli.com/contractCreditRights.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
-                    return {loanId,loaninvestorId,downloadUrl,imageUrl,creditUrl}
+                    return {loanId,loaninvestorId,downloadUrl,creditUrl}
                 }
             })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
@@ -185,6 +184,11 @@ const getContract = async(plan)=>{
             log.error(e.stack||e)
         }
     }
+    let plan_amount = 0
+    for(let contract of contracts){
+        plan_amount+=contract.myAmount
+    }
+    plan.planActualAmount = plan_amount
     //deduplicate by infoUrl
     let contractObj = {},deduplicated = []
     for(let contract of contracts){
@@ -375,54 +379,59 @@ const saveContract = async (plan,contracts)=>{
     let PlanPath = downloadPath + "/" + plan.planName
     await mkdirp(PlanPath)
     contracts = contracts.map(contract=>Object.assign(contract,plan))
-    let header = [{id: 'name', title: '合同名称'},
-        {id: 'myAmount', title: '我的待收'},
-        {id:'planName',title:'定存宝名'},
-        {id:'planAmount',title:'定存宝投资额'},
-    ]
-    if(!SkipDetail){
-        header = header.concat([{id: 'borrowerType', title: '借款人类型'},
-            {id: 'amount', title: '金额'},
-            {id: 'rate', title: '利率%'},
-            {id: 'term', title: '期限(月)'},
-            {id: 'payType', title: '还款方式'},
-            {id: 'payStartDate', title: '开始时间'},
-            {id: 'expired', title: '是否逾期'}])
-    }
-    if(!SkipParse){
+    const writeCsv = false
+    if(writeCsv){
+        let header = [{id: 'name', title: '合同名称'},
+            {id: 'myAmount', title: '我的待收'},
+            {id:'planName',title:'定存宝名'},
+            {id:'planAmount',title:'定存宝投资额'},
+        ]
+        if(!SkipDetail){
+            header = header.concat([{id: 'borrowerType', title: '借款人类型'},
+                {id: 'amount', title: '金额'},
+                {id: 'rate', title: '利率%'},
+                {id: 'term', title: '期限(月)'},
+                {id: 'payType', title: '还款方式'},
+                {id: 'payStartDate', title: '开始时间'},
+                {id: 'expired', title: '是否逾期'}])
+        }
+        if(!SkipParse){
+            header = header.concat([
+                {id: 'beginDate', title: '合同开始日期'},
+                {id: 'endDate', title: '合同结束日期'},
+                {id: 'expired', title: '是否逾期'},
+                {id: 'myLendsTotal', title: '实际出借'},
+                {id: 'real', title: '是否包含实际出借'},
+                {id: 'borrowerType', title: '借款人类型'},
+                {id: 'borrowerName', title: '借款人名'},
+                {id: 'borrowerYooliID', title: '借款人ID'},
+                {id: 'borrowerID', title: '借款人证件号'},
+                {id: 'contractType', title: '还款方式'},
+                {id: 'lender', title: '丙方'},
+                {id: 'assurance', title: '担保方'}
+            ])
+        }
         header = header.concat([
-            {id: 'beginDate', title: '合同开始日期'},
-            {id: 'endDate', title: '合同结束日期'},
-            {id: 'expired', title: '是否逾期'},
-            {id: 'myLendsTotal', title: '实际出借'},
-            {id: 'real', title: '是否包含实际出借'},
-            {id: 'borrowerType', title: '借款人类型'},
-            {id: 'borrowerName', title: '借款人名'},
-            {id: 'borrowerYooliID', title: '借款人ID'},
-            {id: 'borrowerID', title: '借款人证件号'},
-            {id: 'contractType', title: '还款方式'},
-            {id: 'lender', title: '丙方'},
-            {id: 'assurance', title: '担保方'}
-        ])
+            {id: 'infoUrl', title:'合同链接'},
+            {id: 'detailUrl', title:'合同详情链接'},
+            {id: 'creditUrl', title:'债转链接'}])
+        const csvWriter = createCsvWriter({
+            path: PlanPath + '/contracts.csv',
+            header: header
+        });
+        await csvWriter.writeRecords(contracts)
     }
-    header = header.concat([
-    {id: 'infoUrl', title:'合同链接'},
-    {id: 'detailUrl', title:'合同详情链接'},
-    {id: 'creditUrl', title:'债转链接'}])
-    const csvWriter = createCsvWriter({
-        path: PlanPath + '/contracts.csv',
-        header: header
-    });
-    await csvWriter.writeRecords(contracts)
     await jsonfile.writeFileSync(PlanPath + '/' + allContractFileName,contracts, { spaces: 2 })
-    await jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
-    await jsonfile.writeFileSync(allBorrowerFilePath,allBorrowers, { spaces: 2 })
     if(SaveSearch){
         try{
             await search.batchSave(search_index_prefix + currDate,contracts)
         }catch(e){
             log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
         }
+    }
+    await jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
+    if(!SkipCheatCheck){
+        await jsonfile.writeFileSync(allBorrowerFilePath,allBorrowers, { spaces: 2 })
     }
     log.info(`save contract in plan ${plan.planName} success`)
 }

@@ -7,7 +7,9 @@
     "init": "node dist/init.js",
     "download": "node dist/download.js",
     "app": "node dist/app.js",
-    "release": "sh release.sh"
+    "release": "sh release.sh",
+    "fix": "node test/fix_company.js",
+    "classify": "node classify.js"
   },
   "keywords": [],
   "author": "",

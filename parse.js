@@ -61,7 +61,7 @@ const parseContractType = (lines)=>{
 }
 
 const parseMyLends = (lines)=>{
-    let regex = /身份证/,lineNum=0,result,results=[]
+    let regex = /身份证/,firstLineNum,lineNum=0,result,results=[]
     let getNum = (lineNum)=>{
         for(let i=lineNum+1;i<lineNum+5;i++){
             if(lines[i].match(/^[+-]?\d+(\.\d+)?$/)){
@@ -72,38 +72,47 @@ const parseMyLends = (lines)=>{
     for(let line of lines){
         result = regex.exec(line)
         if(result){
+            firstLineNum = lineNum
             let num = getNum(lineNum)
             if(num){
                 results.push(num)
             }
         }
         lineNum ++
+        if(lineNum>firstLineNum+50){
+            break
+        }
     }
     return results
 }
 
+
+const removeDuplicateCompanyName = (company)=>{
+    company = company.replace(/（.*/,'').replace(/\s/g,'')
+    return company
+}
+
 const parseAssurance = (lines)=>{
-    let regex = /丁方:(.*)$|丁方：(.*)$/,result
+    let regex = /丁方:(.*公司)|丁方：(.*公司)/,result
     for(let line of lines){
         result = regex.exec(line)
         if(result){
             if(result.length==2||result.length==3){
                 result = result[result.length-1]||result[result.length-2]
-                return result.replace('（','')
+                return removeDuplicateCompanyName(result)
             }
         }
     }
 }
 
 const parseLender = (lines)=>{
-    let regex = /丙方：(.*)$/,result
+    let regex = /丙方：(.*公司)/,result
     for(let line of lines){
         result = regex.exec(line)
         if(result){
             if(result.length==2||result.length==3){
                 result = result[result.length-1]||result[result.length-2]
-                result = result.replace(/（[^）]*）/,'')
-                return result
+                return removeDuplicateCompanyName(result)
             }
         }
     }
@@ -127,11 +136,44 @@ const parseContractDate = (lines)=>{
     }
 }
 
+const parseBorrowNum = (lines)=>{
+    let regex = /借款本金数额/,lineNum=0,result,num
+    let getNum = (lineNum)=>{
+        let results = [],line,num,start=false,end=false
+        for(let i=lineNum;i<lineNum+12;i++){
+            line = lines[i]
+            if(line.match(/^\d$/)){
+                start = true
+                results.push(line)
+            }else{
+                end = start?true:false
+            }
+            if(start&&end){
+                break
+            }
+        }
+        if(results.length){
+            num = parseInt(results.join(''))/100
+        }
+        return num
+    }
+    for(let line of lines){
+        lineNum++
+        result = regex.exec(line)
+        if(result){
+            num = getNum(lineNum)
+            break
+        }
+
+    }
+    return num
+}
+
 const parseAll = (lines)=>{
     const PersonalType = '个人'
     let signDate,borrowerName,borrowerType=PersonalType,
         borrowerYooliID,borrowerID,contractType,myLends,myLendsTotal,
-        lender,assurance,contractDate,real = true,expired=false
+        lender,assurance,contractDate,expired=false,borrowNum
     signDate = parseSignDate(lines)
     borrowerName = parseBorrowerName(lines)
     if(borrowerName.match('公司')){
@@ -146,7 +188,6 @@ const parseAll = (lines)=>{
     if(myLends.length>0){
         myLendsTotal = myLends.reduce((a, b) => a + b, 0)
     }else{
-        real = false
         myLends = undefined
     }
     lender = parseLender(lines)
@@ -155,7 +196,8 @@ const parseAll = (lines)=>{
     if(contractDate&&contractDate.endDate){
         expired = moment(contractDate.endDate).isBefore(moment())
     }
-    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,myLendsTotal,lender,assurance,real,expired})
+    borrowNum = parseBorrowNum(lines)
+    return Object.assign(contractDate,{signDate,borrowerName,borrowerType,borrowerYooliID,borrowerID,contractType,myLends,myLendsTotal,lender,assurance,expired,borrowNum})
 }
 
 const parsePdf = async (filePath)=>{

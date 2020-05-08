@@ -1,9 +1,10 @@
+const path = require('path')
+const fs = require('fs')
+const parse = require('../parse')
+const specificDir = './download/all'
+let result, specificFile = 'loanagreement_9122875.pdf';
+
 (async () => {
-    const fs = require('fs')
-    const path = require('path')
-    const parse = require('../parse')
-    const specificDir = '../download/20200412/24-180103'
-    let result, specificFile = 'loanagreement_5545564.pdf'
     const files = await fs.readdirSync(specificDir);
     let parseFile = async (file) => {
         const filepath = path.join(specificDir, file);
