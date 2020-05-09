@@ -48,6 +48,12 @@ npm run classify//合同按担保公司和是否有章分类
 
 ![](analysis.png)
 
+![](assurance.png)
+
+### 合同按担保公司和是否有章分类
+
+![](classify.png)
+
 ### 小tips
 
 * 数据采集仅针对个人,数据存储在本地不上传汇聚,保证数据隐私性

@@ -48,15 +48,15 @@ let result,filepath,match,contract,contracts=[],allContracts,classified,classifi
     for(let assurance in classified){
         signed_num = unsigned_num = total_num = 0
         await mkdirp(classifiedDir + '/' + assurance)
-        await mkdirp(classifiedDir + '/' + assurance + '/signed')
-        await mkdirp(classifiedDir + '/' + assurance + '/unsigned')
+        await mkdirp(classifiedDir + '/' + assurance + '/有章')
+        await mkdirp(classifiedDir + '/' + assurance + '/无章')
         for(let contract of classified[assurance]['contract']){
             srcFile = allDir + '/' + 'loanagreement_' + contract.id + '.pdf'
             if(contract.signDate>StartSignDate){
-                dstFile = classifiedDir + '/' + assurance + '/signed' + '/' + 'loanagreement_' + contract.id + '.pdf'
+                dstFile = classifiedDir + '/' + assurance + '/有章' + '/' + 'loanagreement_' + contract.id + '.pdf'
                 signed_num+=contract.borrowNum
             }else{
-                dstFile = classifiedDir + '/' + assurance + '/unsigned' + '/' + 'loanagreement_' + contract.id + '.pdf'
+                dstFile = classifiedDir + '/' + assurance + '/无章' + '/' + 'loanagreement_' + contract.id + '.pdf'
                 unsigned_num+=contract.borrowNum
             }
             if(!fs.existsSync(dstFile)){

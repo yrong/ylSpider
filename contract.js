@@ -86,9 +86,14 @@ const getPlans = async ()=>{
     await page.goto('https://www.yooli.com/financePlanRecords.session.action',loadPageOption);
     await page.waitForSelector(planSelector);
     //get maxPageNum for plans
-    let maxPlanPageNum = await page.$eval(planPageNumSelector, element => {
-        return element.innerText
-    });
+    let maxPlanPageNum
+    try{
+        maxPlanPageNum = await page.$eval(planPageNumSelector, element => {
+            return element.innerText
+        });
+    }catch(err){
+        maxPlanPageNum = 1
+    }
     maxPlanPageNum = parseInt(maxPlanPageNum)
     //get plans in first page
     let getPlanInPage = async()=>{
@@ -136,9 +141,14 @@ const getContract = async(plan)=>{
     });
     Object.assign(plan,{planRate,planAmount,planDate})
     //get maxPageNum for contracts
-    let maxContractPageNum = await page.$eval(contractPageNumSelector, element => {
-        return element.innerText
-    });
+    let maxContractPageNum
+    try{
+        maxContractPageNum = await page.$eval(contractPageNumSelector, element => {
+            return element.innerText
+        });
+    }catch(err){
+        maxContractPageNum = 1;
+    }
     maxContractPageNum = parseInt(maxContractPageNum)
     //get all contract links
     let getContractsInPage = async ()=>{

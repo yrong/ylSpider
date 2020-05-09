@@ -10,5 +10,5 @@ rm -rf release.zip
 zip -r release.zip dist public .env.example package.json package-lock.json \
 install.bat install.ps1 ecosystem.config.js $readme \
 appreciate.jpg analysis.png detail.png
-zip -ur -j release.zip vendor/*
+#zip -ur -j release.zip vendor/*
 
