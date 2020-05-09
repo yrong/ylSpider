@@ -37,6 +37,7 @@ npm install
 npm run init//初始化elasticsearch
 npm run download//一键下载合同
 npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始化elasticsearch并完成合同下载)
+npm run classify//合同按担保公司和是否有章分类
 ```
 
 ### 合同列表示例
@@ -59,9 +60,8 @@ npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始�
 
 * 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
-* 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
-
-
+* 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号名称（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
+ 
 
 ### 赞助
 

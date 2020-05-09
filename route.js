@@ -50,7 +50,10 @@ router.get('/contract_analysis/:index',async (ctx,next) =>{
                     "terms" : { "field" : "borrowerType" }
                 },
                 "assurance": {
-                    "terms" : { "field" : "assurance" }
+                    "terms" : { "field" : "assurance" },
+                    "aggs":{
+                        "borrowNum" : { "sum" : { "field" : "borrowNum" } }
+                    }
                 },
                 "contractType" : {
                     "terms" : { "field" : "contractType" }
