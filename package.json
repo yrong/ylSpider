@@ -4,12 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "release": "sh release.sh",
     "init": "node dist/init.js",
     "download": "node dist/download.js",
     "app": "node dist/app.js",
-    "release": "sh release.sh",
-    "fix": "node test/fix_company.js",
-    "classify": "node classify.js"
+    "classify": "node dist/classify.js",
+    "fix": "node test/fix_company.js"
   },
   "keywords": [],
   "author": "",

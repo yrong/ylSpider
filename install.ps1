@@ -43,19 +43,19 @@ if (Get-Command node -errorAction SilentlyContinue) {
 	refreshenv
 }
 
-write-host "intall pm2"
-if (Get-Command pm2 -errorAction SilentlyContinue) {
-	write-host "pm2 detected,ignore install"
-}else{
-	npm install pm2 -g
-	npm install pm2-windows-startup -g
-}
 
 write-host "intall depend packages"
 npm install --only=prod
 
 $installApplicationAsService=$false
 if ($installApplicationAsService) {
+	write-host "intall pm2"
+	if (Get-Command pm2 -errorAction SilentlyContinue) {
+		write-host "pm2 detected,ignore install"
+	}else{
+		npm install pm2 -g
+		npm install pm2-windows-startup -g
+	}
     write-host "install cron application as service"
     pm2 reload ecosystem.config.js
     pm2-startup install
@@ -127,4 +127,8 @@ if ($installSearchService -eq 'y') {
 Set-Content -Path .env -Value $x -Encoding UTF8
 New-Item -ItemType Directory -Force -Path .\download\all
 
-write-host "install finished,config .env file then type ""npm run download"" to download contract"
+write-host "install finished. to download contract you may need steps as following:`n
+1.config file .env as required
+2.copy your contracts to folder ""download/all"" if already downloaded
+3.in this terminal type ""npm run download"" to download contract and save data to elasticsearch`n"
+4.in this terminal type ""npm run app"" to start the webapp and open http://localhost:8080 in chrome`n"
