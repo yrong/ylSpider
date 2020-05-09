@@ -130,5 +130,7 @@ New-Item -ItemType Directory -Force -Path .\download\all
 write-host "install finished. to download contract you may need steps as following:`n
 1.config file .env as required
 2.copy your contracts to folder ""download/all"" if already downloaded
-3.in this terminal type ""npm run download"" to download contract and save data to elasticsearch`n"
-4.in this terminal type ""npm run app"" to start the webapp and open http://localhost:8080 in chrome`n"
+3.in this terminal type ""npm run download"" to download any new contract and save data to elasticsearch
+4.in this terminal type ""npm run classify"" to classify contracts based on assurance company
+5.in this terminal type ""npm run app"" to start the analysis webapp and open http://localhost:8080 in chrome`n"
+

@@ -9,5 +9,6 @@ sed -i '1s/^/<meta charset="UTF-8">/' $readme
 rm -rf release.zip
 zip -r release.zip dist public .env.example package.json package-lock.json \
 install.bat install.ps1 ecosystem.config.js $readme \
-appreciate.jpg analysis.png detail.png \
-vendor/elasticsearch-7.3.2.zip，vendor/jdk-13.exe
+appreciate.jpg analysis.png detail.png
+zip -ur -j release.zip vendor/*
+

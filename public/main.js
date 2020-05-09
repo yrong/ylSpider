@@ -236,12 +236,16 @@ const initContractTable = () => {
     });
 
     $('#analysisBtn').click(()=>{
-        let index = $('#contractIndex').val(),assuranceObj = {},beginDateObj = {},endDateObj={},
+        let index = $('#contractIndex').val(),assuranceObj = {},assuranceNumObj={},beginDateObj = {},endDateObj={},
             expiredObj = {}, cheatObj = {},borrowerTypeObj = {},myAmountObj = {},contractTypeObj = {};
         $.get('/api/contract_analysis/' + index, function (result) {
-            let data = result.aggs,count = result.count,cheatCnt=0;
+            let data = result.aggs,count = result.count,cheatCnt=0,assuranceNumSum=0;
+            for(let bucket of data.assurance.buckets){
+                assuranceNumSum += bucket['borrowNum'].value
+            }
             for(let bucket of data.assurance.buckets){
                 assuranceObj[bucket['key']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
+                assuranceNumObj[bucket['key']] = Math.round((bucket['borrowNum'].value/assuranceNumSum)*100*100)/100 + '%'
             }
             for(let bucket of data.beginDate.buckets){
                 beginDateObj[bucket['key_as_string']] = Math.round((bucket['doc_count']/count)*100*100)/100 + '%'
@@ -278,6 +282,8 @@ const initContractTable = () => {
             $('#analysisDlg #by_expired').html(JSON.stringify(expiredObj))
             $('#analysisDlg #by_borrowerType').html(JSON.stringify(borrowerTypeObj))
             $('#analysisDlg #by_contractType').html(JSON.stringify(contractTypeObj))
+            $('#analysisDlg #by_assurance').html(JSON.stringify(assuranceObj))
+            $('#analysisDlg #by_assurance_num').html(JSON.stringify(assuranceNumObj))
             $('#analysisDlg').modal()
         })
 
