@@ -16,6 +16,7 @@ ylw数据采集工具
 * [java](https://www.java.com/zh_CN/download/)
 * [elasticsearch](https://www.elastic.co/cn/downloads/elasticsearch)
 
+windows环境支持一键安装，解压[全量安装包](https://hk5.yrong.space/release_full.zip) 后install.bat批处理文件上右键以管理员身份运行可一键安装(包含elasticsearch等依赖服务)
 
 ### 配置
 
@@ -58,7 +59,7 @@ npm run classify//合同按担保公司和是否有章分类
 
 * 数据采集仅针对个人,数据存储在本地不上传汇聚,保证数据隐私性
 
-* 不挑系统windows/linux/mac下都能跑,windows环境封装了一键安装脚本,解压[安装包](https://hk5.yrong.space/release.zip) 后install.bat批处理文件上右键以管理员身份运行可一键安装依赖服务及应用程序
+* windows/linux/mac下都能跑,除windows环境支持一键安装外其它需自己安装依赖应用
 
 * 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,先将所有合同拷贝到当前目录的download/all子目录下
 
@@ -67,6 +68,9 @@ npm run classify//合同按担保公司和是否有章分类
 * 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false,无需运行`npm run init`
 
 * 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号名称（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
+
+* 升级可直接下载[升级安装包](https://hk5.yrong.space/release.zip)后解压dist目录内的所有文件覆盖到原安装目录即可 
+
  
 
 ### 赞助

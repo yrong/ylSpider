@@ -2,7 +2,7 @@ const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
-const entries = {download:'./download.js',init:'./init.js',app:'./main.js',cron:'./cron.js',classify:'./classify.js'}
+const entries = {init:'./init.js',app:'./main.js',download:'./download.js',cron_download:'./cron.js',classify:'./classify.js'}
 
 const plugins = [];
 

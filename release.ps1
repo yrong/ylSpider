@@ -11,7 +11,7 @@ if (Test-Path $zipName)
 }
 
 $compress = @{
-  Path = "dist","public",".env.example","package.json","package-lock.json","install.bat","install.ps1", "ecosystem.config.js",$readme,"appreciate.jpg","analysis.png","detail.png","vendor/elasticsearch-7.3.2.zip","vendor/jdk-13.exe"
+  Path = "dist","public",".env.example","package.json","package-lock.json","install.bat","install.ps1","start.bat","start.ps1","ecosystem.config.js",$readme,"appreciate.jpg","analysis.png","detail.png"
   CompressionLevel = "Fastest"
   DestinationPath = $zipName
 }
