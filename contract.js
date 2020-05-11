@@ -339,11 +339,20 @@ const downloadContract = async (plan,contracts)=>{
                 }
             }catch(e){
                 log.error(`contract ${contract.id} download fail,will retry` + e.stack||e)
+            }finally {
+                if(contract.retryTime>=0){
+                    contract.retryTime +=1
+                }else{
+                    contract.retryTime = 0
+                }
             }
         }
         await sleep(DownloadInterval)
         retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
-        if (retryContracts.length) {
+        retryContracts = retryContracts.filter((contract)=>{
+            return contract.retryTime<10
+        })
+        if (retryContracts&&retryContracts.length) {
             log.info(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
             await downloadContract(plan, retryContracts)
         }

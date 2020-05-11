@@ -5,9 +5,11 @@ download
 .env
 *.log
 test/test.js
-release.zip
 dist
 README.html
 yooli.html
 vendor
 elasticsearch*
+release.zip
+release_full.zip
+release

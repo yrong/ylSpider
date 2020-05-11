@@ -69,7 +69,9 @@ npm run classify//合同按担保公司和是否有章分类
 
 * 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号名称（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
 
-* 升级可直接下载[升级安装包](https://hk5.yrong.space/release.zip)后解压dist目录内的所有文件覆盖到原安装目录即可 
+* 升级可直接下载[升级安装包](https://hk5.yrong.space/release.zip)后解压dist目录内的所有文件覆盖到原安装目录即可
+
+* 后续启动直接运行start.bat即可 
 
  
 
