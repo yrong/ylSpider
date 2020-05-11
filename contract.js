@@ -31,7 +31,8 @@ let browser,page,currDate,downloadPath,downloadAllPath,allBorrowerFilePath,
     SkipCheatCheck = (process.env['SkipCheatCheck']=='true'),
     CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum']),
     CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum']),
-    CheckCheatStartYear = process.env['CheckCheatStartYear']
+    CheckCheatStartYear = process.env['CheckCheatStartYear'],
+    DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||500
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -150,6 +151,7 @@ const getContract = async(plan)=>{
         maxContractPageNum = 1;
     }
     maxContractPageNum = parseInt(maxContractPageNum)
+    maxContractPageNum = maxContractPageNum>DownloadMaxPage?DownloadMaxPage:maxContractPageNum
     //get all contract links
     let getContractsInPage = async ()=>{
         let details = await page.$$eval(contractDetailSelector, anchors => {
@@ -159,7 +161,7 @@ const getContract = async(plan)=>{
         let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
                 let regex = /.*loanId=(\d+)\&loaninvestorId=(\d+)$/,
-                    loanId,loaninvestorId,imageUrl,creditUrl,downloadUrl,match
+                    loanId,loaninvestorId,creditUrl,downloadUrl,match
                 match = regex.exec(a.href)
                 if(match&&match.length==3){
                     loanId = match[1]
@@ -349,12 +351,12 @@ const downloadContract = async (plan,contracts)=>{
     else if(DownloadPolicy=='image'){
         for(let contract of contracts) {
             try {
-                await page.goto(contract.imageUrl, loadPageOption)
+                await page.goto(contract.detailUrl, loadPageOption)
                 await page.waitForSelector(ContractImageSelector,{timeout:5000});
                 await page.click(ContractImageSelector)
                 await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
             } catch (e) {
-                log.error(`imageUrl ${contract.imageUrl} download fail!` + e.stack||e)
+                log.error(`contract ${contract.detailUrl} download fail!` + e.stack||e)
             }
         }
     }else{
@@ -583,11 +585,6 @@ const findCheat = async(plan,contracts)=>{
         return cheat
     }
 
-    let saveFileTimer = setInterval(async () => {
-        await saveContract(plan, contracts)
-        log.info('periodical save contracts success')
-    }, 120000);
-
     for(let contract of contracts){
         let exist = allContracts.find((exist)=>{
             return exist.id === contract.id
@@ -645,7 +642,6 @@ const findCheat = async(plan,contracts)=>{
             }
         }
     }
-    clearInterval(saveFileTimer)
 }
 
 const download = async (username,passwd)=>{
@@ -666,6 +662,10 @@ const download = async (username,passwd)=>{
     }
     for(let plan of plans){
         let contracts = await getContract(plan)
+        let saveFileTimer = setInterval(async () => {
+            await saveContract(plan, contracts)
+            log.info('periodical save contracts success')
+        }, 120000);
         if(!SkipDetail){
             contracts = await getContractDetail(plan,contracts)
             log.info(`get contract detail in plan ${plan.planName} success`)
@@ -682,6 +682,7 @@ const download = async (username,passwd)=>{
             await findCheat(plan,contracts)
             log.info(`check cheat in plan ${plan.planName} success`)
         }
+        clearInterval(saveFileTimer)
         await saveContract(plan,contracts)
     }
     await browser.close()
