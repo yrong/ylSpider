@@ -49,15 +49,28 @@ const parseBorrowerId = (lines)=>{
 }
 
 const parseContractType = (lines)=>{
-    let regex = /注：还款方式为“(.*?)”的，适用上述表格/,result
+    let regex = /注：还款方式为“(.*?)”的，适用上述表格/,result,lineNum=0;
     for(let line of lines){
         result = regex.exec(line)
         if(result){
             if(result.length==2) {
-                return result[1]
+                result = result[1]
+                break
             }
         }
     }
+    if(!result){
+        regex = /还款方式/
+        for(let line of lines){
+            result = regex.exec(line)
+            if(result){
+                result = lines[lineNum+1]
+                break
+            }
+            lineNum++
+        }
+    }
+    return result
 }
 
 const parseMyLends = (lines)=>{
@@ -176,7 +189,7 @@ const parseAll = (lines)=>{
         lender,assurance,contractDate,expired=false,borrowNum
     signDate = parseSignDate(lines)
     borrowerName = parseBorrowerName(lines)
-    if(borrowerName.match('公司')){
+    if(borrowerName.match('公司')||borrowerName.match('酒店')||borrowerName.match('网吧')){
         borrowerType = '公司'
     }
     if(borrowerType==PersonalType){

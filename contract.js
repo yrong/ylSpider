@@ -4,7 +4,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp')
-const log = require('simple-node-logger').createSimpleLogger();
+const log = require('simple-node-logger').createSimpleLogger('download.log');
 const moment = require('moment')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const search = require('./search')
@@ -17,22 +17,22 @@ let browser,page,currDate,downloadPath,downloadAllPath,allBorrowerFilePath,
     allContractFileName = 'contracts.json',allBorrowerFileName = 'borrowers.json',
     ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     ChromeBinPath = process.env['CHROME_BIN_PATH'],
-    ChromeHeadlessMode = (process.env['CHROME_HEADLESS_MODE']=='true'),
-    SkipDownload = (process.env['SkipDownload']=='true'),
-    SkipDetail = (process.env['SkipDetail']=='true'),
-    SaveSearch = (process.env['SaveSearch']=='true'),
-    WeixinLogin = (process.env['WeixinLogin']=='true'),
     PlanName = process.env['PlanName'],
-    DownloadInterval = parseInt(process.env['DownloadInterval']),
-    DownBatchSize = parseInt(process.env['DownBatchSize']),
-    DefaultTimeout = parseInt(process.env['DefaultTimeout']),
-    DownloadPolicy = process.env['DownloadPolicy'],
-    SkipParse = (process.env['SkipParse']=='true'),
-    SkipCheatCheck = (process.env['SkipCheatCheck']=='true'),
-    CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum']),
-    CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum']),
-    CheckCheatStartYear = process.env['CheckCheatStartYear'],
-    DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||500
+    ChromeHeadlessMode = process.env['CHROME_HEADLESS_MODE']?(process.env['CHROME_HEADLESS_MODE']=='true'):false,
+    WeixinLogin = process.env['WeixinLogin']?(process.env['WeixinLogin']=='true'):true,
+    SkipDownload = process.env['SkipDownload']?(process.env['SkipDownload']=='true'):false,
+    SkipDetail = process.env['SkipDetail']?(process.env['SkipDetail']=='true'):true,
+    SkipParse = process.env['SkipParse']?(process.env['SkipParse']=='true'):false,
+    SaveSearch = process.env['SaveSearch']?(process.env['SaveSearch']=='true'):true,
+    DownloadRetryInterval = parseInt(process.env['DownloadRetryInterval'])||10000,
+    DefaultTimeout = parseInt(process.env['DefaultTimeout'])||30000,
+    DownloadPolicy = process.env['DownloadPolicy']||'pdf',
+    SkipCheatCheck = process.env['SkipCheatCheck']?(process.env['SkipCheatCheck']=='true'):true,
+    CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum'])||20,
+    CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum'])||10,
+    CheckCheatStartYear = process.env['CheckCheatStartYear']||'2015',
+    DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||1000,
+    DownloadRetryTime = parseInt(process.env['DownloadRetryTime'])||5
 
 const sleep = async (ms)=>{
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -56,6 +56,15 @@ const init = async ()=>{
     }
     if (fs.existsSync(allBorrowerFilePath)) {
         allBorrowers = jsonfile.readFileSync(allBorrowerFilePath)
+    }
+    if(SaveSearch){
+        try{
+            await search.init()
+            await search.del(search_index_prefix + currDate)
+        }catch(e){
+            //just ignore
+        }
+        log.info('init elasticsearch success')
     }
 }
 
@@ -330,15 +339,19 @@ const downloadContract = async (plan,contracts)=>{
             try{
                 downloaded = await checkDownloaded(plan,contract)
                 if(!downloaded){
-                    await page.goto(contract.downloadUrl,loadPageOption)
-                    await page.waitForSelector(VerifyCodeSelector);
-                    await page.waitForSelector(VerifyCodeSelector,{hidden: true});
-                    log.info(`contract ${contract.id} download success`)
+                    if(contract.retryTime>=DownloadRetryTime) {
+                        log.error(`contract ${contract.id} retry too many times still fail,so skip`)
+                    }else{
+                        await page.goto(contract.downloadUrl, loadPageOption)
+                        await page.waitForSelector(VerifyCodeSelector);
+                        await page.waitForSelector(VerifyCodeSelector, {hidden: true, timeout: DefaultTimeout});
+                        log.info(`contract ${contract.id} download success`)
+                    }
                 }else{
                     log.info(`contract ${contract.id} already downloaded,just skip`)
                 }
             }catch(e){
-                log.error(`contract ${contract.id} download fail,will retry` + e.stack||e)
+                log.warn(`contract ${contract.id} download fail,will retry:` + e.stack||e)
             }finally {
                 if(contract.retryTime>=0){
                     contract.retryTime +=1
@@ -347,13 +360,13 @@ const downloadContract = async (plan,contracts)=>{
                 }
             }
         }
-        await sleep(DownloadInterval)
+        await sleep(DownloadRetryInterval)
         retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
         retryContracts = retryContracts.filter((contract)=>{
-            return contract.retryTime<10
+            return contract.retryTime===undefined||contract.retryTime<DownloadRetryTime
         })
         if (retryContracts&&retryContracts.length) {
-            log.info(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
+            log.warn(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
             await downloadContract(plan, retryContracts)
         }
     }
@@ -361,7 +374,7 @@ const downloadContract = async (plan,contracts)=>{
         for(let contract of contracts) {
             try {
                 await page.goto(contract.detailUrl, loadPageOption)
-                await page.waitForSelector(ContractImageSelector,{timeout:5000});
+                await page.waitForSelector(ContractImageSelector,{timeout:DefaultTimeout});
                 await page.click(ContractImageSelector)
                 await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
             } catch (e) {
@@ -374,32 +387,66 @@ const downloadContract = async (plan,contracts)=>{
 }
 
 const parseDownloadContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,result,exist
+    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,
+        result,exist,valid, checkFields = ['borrowerName','borrowerType','beginDate','assurance','contractType']
+    let checkContractField = (contract)=>{
+        for(let field of checkFields){
+            if(contract[field]==undefined){
+                return false
+            }
+        }
+        if(contract['borrowerType']=='个人'){
+            if(contract['borrowerYooliID']==undefined) {
+                return false
+            }
+            if(contract['borrowerID']==undefined) {
+                return false
+            }
+        }
+        return true
+    }
     for(let contract of contracts){
+        delete contract['retryTime']
+        Object.assign(contract,plan)
         exist = allContracts.find((exist)=>{
             return exist.id === contract.id
         })
         if(exist){
-            contract = Object.assign(contract,exist)
+            Object.assign(contract,exist)
         }else {
             try{
                 contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
-                result = await parse.parsePdf(contractFilePath)
-                contract = Object.assign(contract,result.parsed)
-                allContracts.push(contract)
-                log.info(`contract ${contract.id} parse success`)
+                if (fs.existsSync(contractFilePath)){
+                    result = await parse.parsePdf(contractFilePath)
+                    Object.assign(contract,result.parsed)
+                    valid = checkContractField(contract)
+                    if(valid){
+                        allContracts.push(contract)
+                    }
+                    log.info(`contract ${contract.id} parse success`)
+                }else {
+                    log.warn(`contract ${contract.id} download fail,ignore parse`)
+                }
             }catch(e){
                 log.error(`contract ${contract.id} parse fail:` + e.stack||e)
             }
         }
     }
+    log.info(`${contracts.length} contracts in plan ${plan.planName} crawled`)
+    contracts = contracts.filter((contract)=>{
+        let valid = checkContractField(contract)
+        if(!valid){
+            log.warn(`contract ${contract.id} parse success but incomplete`)
+        }
+        return valid
+    })
+    log.info(`${contracts.length} contracts in plan ${plan.planName} crawled and parsed`)
     return contracts
 }
 
 const saveContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName
+    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,result,valid,exist
     await mkdirp(PlanPath)
-    contracts = contracts.map(contract=>Object.assign(contract,plan))
     const writeCsv = false
     if(writeCsv){
         let header = [{id: 'name', title: '合同名称'},
@@ -541,7 +588,7 @@ const findCheat = async(plan,contracts)=>{
         const link = await element.$('a');
         try{
             await link.click()
-            target = await browser.waitForTarget(target => target.url() === 'http://zxgk.court.gov.cn/zhzxgk/detailZhcx.do',{timeout:10000});
+            target = await browser.waitForTarget(target => target.url() === 'http://zxgk.court.gov.cn/zhzxgk/detailZhcx.do',{timeout:DefaultTimeout});
             targetPage = await target.page()
         }catch(err){
             log.error('captcha invalid!' + err.stack ||err)
@@ -671,10 +718,6 @@ const download = async (username,passwd)=>{
     }
     for(let plan of plans){
         let contracts = await getContract(plan)
-        let saveFileTimer = setInterval(async () => {
-            await saveContract(plan, contracts)
-            log.info('periodical save contracts success')
-        }, 120000);
         if(!SkipDetail){
             contracts = await getContractDetail(plan,contracts)
             log.info(`get contract detail in plan ${plan.planName} success`)
@@ -688,10 +731,14 @@ const download = async (username,passwd)=>{
             log.info(`parse contract in plan ${plan.planName} success`)
         }
         if(!SkipCheatCheck){
+            let saveFileTimer = setInterval(async () => {
+                await saveContract(plan, contracts)
+                log.info('periodical save contracts success')
+            }, DefaultTimeout);
             await findCheat(plan,contracts)
+            clearInterval(saveFileTimer)
             log.info(`check cheat in plan ${plan.planName} success`)
         }
-        clearInterval(saveFileTimer)
         await saveContract(plan,contracts)
     }
     await browser.close()

@@ -1,7 +1,7 @@
 const { Client } = require('@elastic/elasticsearch')
 const client = new Client({ node: `http://${process.env['ES_HOST']||'localhost'}:9200` })
 
-const init = async (index) => {
+const init = async () => {
     await client.indices.putTemplate({
         "name": 'yooli',
         "include_type_name":false,
@@ -102,4 +102,10 @@ const cat = async (index)=>{
     return result.body.map((index)=>index.index)
 }
 
-module.exports = {init,save,retrieve,batchSave,cat}
+const del = async (index)=>{
+    await client.indices.delete({
+        index: index,
+    })
+}
+
+module.exports = {init,save,retrieve,batchSave,cat,del}
