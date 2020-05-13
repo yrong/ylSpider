@@ -4,8 +4,8 @@ ylw数据采集工具
 
 ## 基本功能
 
-+ 互金信批平台月度数据采集
 + 合同一键下载
++ 合同按担保公司和是否有章分类
 + 合同数据分析
 
 
@@ -27,8 +27,8 @@ ylw数据采集工具
 |主要配置项 | 说明|
 |:------|:-------:| 
 |CHROME\_BIN\_PATH                |chrome二进制程序路径|
-|CHROME\_DOWNLOAD\_PATH                |缺省下载路径|
-|SaveSearch                |是否存储到搜索数据库elasticsearch|
+|CHROME\_DOWNLOAD\_PATH                |chrome缺省下载路径|
+|SaveSearch                |是否存储到搜索数据库elasticsearch，未下载或无需数据分析配置为false|
 
 
 
