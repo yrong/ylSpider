@@ -52,7 +52,7 @@ let result,filepath,match,contract,contracts=[],allContracts,classified,classifi
         await mkdirp(classifiedDir + '/' + assurance + '/无章')
         for(let contract of classified[assurance]['contract']){
             srcFile = allDir + '/' + 'loanagreement_' + contract.id + '.pdf'
-            if(contract.signDate>StartSignDate){
+            if(contract.beginDate>=StartSignDate){
                 dstFile = classifiedDir + '/' + assurance + '/有章' + '/' + 'loanagreement_' + contract.id + '.pdf'
                 signed_num+=contract.borrowNum
             }else{

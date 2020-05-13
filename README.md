@@ -24,7 +24,7 @@ windows环境支持一键安装，解压[全量安装包](https://hk5.yrong.spac
 |:------|:-------:| 
 |.env.example                 |配置环境变量参数文件|
 
-.env.example配置完成后重命名为.env
+.env.example配置完成后重命名为.env,有些windows系统不支持从文件浏览器界面改名,可以通过命令方式修改[参考](https://www.cnblogs.com/shangdawei/archive/2012/12/16/2820219.html)
 
 ### 安装依赖
 
