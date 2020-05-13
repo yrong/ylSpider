@@ -27,11 +27,15 @@ let result,filepath,match,contract,contracts=[],allContracts,classified,classifi
                 contracts.push(exist)
             }else{
                 filepath = path.join(allDir, file);
-                result = await parse.parsePdf(filepath)
-                console.log(JSON.stringify(result.parsed, null, 2))
-                contract = result.parsed
-                contract.id = contract.loanId = match[1]
-                contracts.push(contract)
+                try{
+                    result = await parse.parsePdf(filepath)
+                    console.log(JSON.stringify(result.parsed, null, 2))
+                    contract = result.parsed
+                    contract.id = contract.loanId = match[1]
+                    contracts.push(contract)
+                }catch(err){
+                    console.log(`parse pdf file ${file} failed:` + err)
+                }
             }
         }
     }

@@ -11,20 +11,26 @@ ylw数据采集工具
 
 ## 安装依赖应用
 
-* [chrome](https://www.google.com/intl/zh-CN/chrome/)
+* [chrome](https://www.google.cn/intl/zh-CN/chrome/)
 * [nodejs](https://nodejs.org/zh-cn/)
 * [java](https://www.java.com/zh_CN/download/)
 * [elasticsearch](https://www.elastic.co/cn/downloads/elasticsearch)
 
-windows环境支持一键安装，解压[全量安装包](https://hk5.yrong.space/release_full.zip) 后install.bat批处理文件上右键以管理员身份运行可一键安装(包含elasticsearch等依赖服务)
+> 若不用elasticsearch做数据分析,则无需下载java和elasticsearch
+>
+> win10环境支持一键安装，解压[全量安装包](https://hk5.yrong.space/release_full.zip) 后install.bat批处理文件上右键以管理员身份运行可一键安装(包含elasticsearch等依赖服务)
 
 ### 配置
 
-|配置文件 | 说明|
-|:------|:-------:| 
-|.env.example                 |配置环境变量参数文件|
+拷贝.env.example重命名为.env,有些windows系统不支持从文件浏览器界面改名,可以通过[命令方式修改](https://www.cnblogs.com/shangdawei/archive/2012/12/16/2820219.html)
 
-.env.example配置完成后重命名为.env,有些windows系统不支持从文件浏览器界面改名,可以通过命令方式修改[参考](https://www.cnblogs.com/shangdawei/archive/2012/12/16/2820219.html)
+|主要配置项 | 说明|
+|:------|:-------:| 
+|CHROME\_BIN\_PATH                |chrome二进制程序路径|
+|CHROME\_DOWNLOAD\_PATH                |缺省下载路径|
+|SaveSearch                |是否存储到搜索数据库elasticsearch|
+
+
 
 ### 安装依赖
 
@@ -36,8 +42,8 @@ npm install
 
 ```
 npm run init//初始化elasticsearch
-npm run download//一键下载合同
-npm run app//启动数据分析服务,访问http://localhost:8080/(需要初始化elasticsearch并完成合同下载)
+npm run download//下载合同
+npm run app//启动数据分析服务,访问http://localhost:8080/(需要安装并初始化elasticsearch且完成合同下载)
 npm run classify//合同按担保公司和是否有章分类
 ```
 
@@ -71,7 +77,7 @@ npm run classify//合同按担保公司和是否有章分类
 
 * 升级可直接下载[升级安装包](https://hk5.yrong.space/release.zip)后解压dist目录内的所有文件覆盖到原安装目录即可
 
-* 后续启动直接运行start.bat即可 
+* 后续打开命令行窗口并启动elasticsearch可直接运行start.bat,当前窗口下执行`npm run download`下载合同等相关命令即可 
 
  
 
