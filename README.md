@@ -14,8 +14,8 @@ ylw合同采集工具
 
 * [chrome](https://www.google.cn/intl/zh-CN/chrome/)
 * [nodejs](https://nodejs.org/zh-cn/)
-* [java](https://www.java.com/zh_CN/download/)
-* [elasticsearch](https://www.elastic.co/cn/downloads/elasticsearch)
+* [java](https://repo.huaweicloud.com/java/jdk/13+33/)             
+* [elasticsearch](https://elasticsearch.thans.cn/)
 
 > 若不用elasticsearch做数据分析,则无需下载java和elasticsearch分析数据库(此次担保分类无需数据分析)
 
