@@ -609,7 +609,7 @@ const findCheat = async(plan,contracts)=>{
         }
         if (sameId(id, contract.borrowerID)) {
             cheat = true;
-            log.info(`contract ${contract.id} is cheat!!!`)
+            log.warn(`contract ${contract.id} is cheat!!!`)
         }
         await targetPage.close()
         return cheat;
@@ -693,6 +693,7 @@ const findCheat = async(plan,contracts)=>{
                         cheat: cheat
                     }
                 )
+                log.info(`check cheat in contract ${contract.id} success,cheat is ${cheat}`)
             }catch(err){
                 log.error(`check cheat in contract ${contract.id} fail!` + err.stack ||err)
             }
@@ -734,7 +735,7 @@ const download = async (username,passwd)=>{
             let saveFileTimer = setInterval(async () => {
                 await saveContract(plan, contracts)
                 log.info('periodical save contracts success')
-            }, DefaultTimeout);
+            }, 120000);
             await findCheat(plan,contracts)
             clearInterval(saveFileTimer)
             log.info(`check cheat in plan ${plan.planName} success`)

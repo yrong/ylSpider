@@ -51,7 +51,8 @@ npm run app//启动数据分析服务,启动后浏览器可访问http://localhos
 
 ### 一键安装
 
-win10环境支持一键安装，若需要数据分析服务,解压[vendor安装包](https://hk5.yrong.space/vendor.zip) 内的文件拷贝到之前的release解压目录后install.bat批处理文件上右键以管理员身份运行
+* win10环境支持一键安装，解压包根目录install.bat批处理文件上右键以管理员身份运行.
+* 若需要数据分析服务,安装过程中"install search service"选y,否则n.下载分析服务比较耗时,可预先下载并解压[vendor安装包](https://hk5.yrong.space/vendor.zip) 内的文件拷贝到之前解压的release目录加速该过程
 
 ### 合同列表示例
 
