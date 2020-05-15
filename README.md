@@ -17,7 +17,7 @@ ylw合同采集工具
 * [java](https://repo.huaweicloud.com/java/jdk/13+33/)             
 * [elasticsearch](https://elasticsearch.thans.cn/)
 
-> 若不用elasticsearch做数据分析,则无需下载java和elasticsearch分析数据库(此次担保分类无需数据分析)
+> 若不做数据分析,则无需下载java和elasticsearch数据库(合同下载和合同分类都用不到)
 
 ### 安装合同采集应用
 
@@ -32,13 +32,15 @@ npm install
 
 ### 配置
 
-所有可配置项都在解压包根目录的.env文件内,内有配置项说明.缺省配置基本不用改就能用,以下几个配置需要比对一下:
+所有可配置项都在解压包根目录的.env文件内,内有配置项说明.缺省配置基本不用改就能用,部分配置可能需要调整一下:
 
-|可能需修改的配置项 | 说明|
-|:------|:-------:| 
-|CHROME\_BIN\_PATH                |chrome二进制程序路径(需确保和本地一致)|
-|CHROME\_DOWNLOAD\_PATH                |chrome缺省下载路径(需确保和本地一致)|
-|SaveSearch                |是否存储到搜索数据库elasticsearch(无需数据统计分析配置为false)|
+|可能需修改的配置项 | 说明| 值|
+|:------|:-------:| :-------:| 
+|CHROME\_BIN\_PATH                |chrome二进制程序路径(需确保和本地一致)          |C:\Program Files (x86)\Google\Chrome\Application\chrome.exe
+|CHROME\_DOWNLOAD\_PATH                |chrome缺省下载路径(需确保和本地一致)       |C:\Users\Administrator\Downloads
+|PlanName               |下载指定定存宝名称（多个英文逗号分隔,不配置下全部）                |24-180204,12-190507
+|DownloadMaxPage               |合同抓取最大分页数                |1000
+|DownloadRetryTime               |合同抓取最大重试次数               |5
 
 
 ### 启动脚本说明
@@ -52,7 +54,7 @@ npm run app//启动数据分析服务,启动后浏览器可访问http://localhos
 ### 一键安装
 
 * win10环境支持一键安装，解压包根目录install.bat批处理文件上右键以管理员身份运行.
-* 若需要数据分析服务,安装过程中"install search service"选y,否则n.下载分析服务比较耗时,可预先下载并解压[vendor安装包](https://hk5.yrong.space/vendor.zip) 内的文件拷贝到之前解压的release目录加速该过程
+* 若需要数据分析服务,安装过程中"install search service"选y,否则n.一键安装脚本会自动下载安装数据库，过程比较耗时，可预先下载并解压[vendor安装包](https://hk5.yrong.space/vendor.zip) 内的文件拷贝到之前解压的release目录加速该过程
 
 ### 合同列表示例
 
@@ -77,8 +79,6 @@ npm run app//启动数据分析服务,启动后浏览器可访问http://localhos
 * 合同下载缺省是增量下载方式,若之前通过其它方式下载过合同,先将所有合同拷贝到解压目录的download/all子目录下
 
 * 新合同下载和老赖数据提取的图片验证码部分仍需手工干预,不过因为是增量方式,已下载的合同和已经校验的老赖后续不会重复验证,不要嫌烦哦
-
-* 若不用elasticsearch做数据分析,.env中的SaveSearch配置项可以配置为false
 
 * 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号名称（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
 
