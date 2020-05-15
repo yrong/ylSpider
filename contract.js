@@ -87,7 +87,6 @@ const login = async (username,passwd)=>{
     }
     const userSelector = "a[href='/userAccount.session.action']";
     await page.waitForSelector(userSelector);
-    log.info('login success')
 }
 
 const getPlans = async ()=>{
@@ -123,13 +122,11 @@ const getPlans = async ()=>{
         await page.waitForSelector(planSelector);
         plans = plans.concat(await getPlanInPage());
     }
-    log.info(`get all plans success`)
     return plans
 }
 
 const getContract = async(plan)=>{
     const contractInfoSelector = "a[href^='/dingcunbao/item']";
-    const contractDetailSelector = "a[href^='/contractDetail.session.action']";
     const contractDownloadSelector = "a[href^='/contractDetailDownload.session.action']";
     const myAmountSelector = '#financePlanLoanInvestorList div.plan-post:not(:first-child) ul li.col_2'
     const contractPageNumSelector = "div#planLoanListPager a:nth-last-child(2)";
@@ -163,21 +160,21 @@ const getContract = async(plan)=>{
     maxContractPageNum = maxContractPageNum>DownloadMaxPage?DownloadMaxPage:maxContractPageNum
     //get all contract links
     let getContractsInPage = async ()=>{
-        let details = await page.$$eval(contractDetailSelector, anchors => {
-            return [].map.call(anchors, a => {
-                return {detailUrl:a.href}
-            })});
         let downloads = await page.$$eval(contractDownloadSelector, anchors => {
             return [].map.call(anchors, a => {
                 let regex = /.*loanId=(\d+)\&loaninvestorId=(\d+)$/,
-                    loanId,loaninvestorId,creditUrl,downloadUrl,match
+                    loanId,id,loaninvestorId,downloadUrl,detailUrl,creditUrl,match
                 match = regex.exec(a.href)
                 if(match&&match.length==3){
                     loanId = match[1]
+                    id = loanId
                     loaninvestorId = match[2]
                     downloadUrl = a.href
                     creditUrl = `https://www.yooli.com/contractCreditRights.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
-                    return {loanId,loaninvestorId,downloadUrl,creditUrl}
+                    detailUrl = `https://www.yooli.com/contractDetail.session.action?loanId=${loanId}&loaninvestorId=${loaninvestorId}`
+                    return {id,loanId,loaninvestorId,downloadUrl,creditUrl,detailUrl}
+                }else{
+                    log.error(`invalid contract with downloadUrl as ${a.href}`)
                 }
             })});
         let myAmounts = await page.$$eval(myAmountSelector, eles => {
@@ -190,7 +187,7 @@ const getContract = async(plan)=>{
                 return {name:a.innerText,infoUrl:a.href}
             })});
         for(let i=0;i<infos.length;i++){
-            Object.assign(infos[i],details[i],downloads[i],myAmounts[i],{id:downloads[i].loanId})
+            Object.assign(infos[i],downloads[i],myAmounts[i])
         }
         return infos
     }
@@ -210,18 +207,13 @@ const getContract = async(plan)=>{
         plan_amount+=contract.myAmount
     }
     plan.planActualAmount = plan_amount
-    //deduplicate by infoUrl
-    let contractObj = {},deduplicated = []
     for(let contract of contracts){
-        contractObj[contract.infoUrl] = contract
+        Object.assign(contract,plan)
     }
-    for (let key in contractObj)
-        deduplicated.push(contractObj[key]);
-    log.info(`get contract in plan ${plan.planName} success`)
-    return deduplicated
+    return contracts
 }
 
-const getContractDetail = async (plan,contracts)=>{
+const getContractDetail = async (contracts)=>{
     const borrowAmountSelector = 'div.invest-top div.profit dl.f dd em'
     const borrowerTypeSelector = 'div.invest-top div.head span.type'
     const borrowRateSelector = 'div.invest-top div.profit dl:nth-child(2) dd em'
@@ -270,8 +262,7 @@ const getContractDetail = async (plan,contracts)=>{
             contract = Object.assign(contract,{amount,borrowerType,rate,term,payType,payStartDate,expired})
             log.info(`get contract ${contract.id} detail success`)
         }catch (e) {
-            log.error(e.stack||e)
-            log.error(`fail to get detail of contract ${contract.id} in plan ${plan.planName}`)
+            log.error(`fail to get detail of contract ${contract.id}:` + e)
         }
     }
     return contracts
@@ -287,19 +278,31 @@ const getDownloadToken = async (url,waitUrl)=>{
     }
 }
 
-const downloadContract = async (plan,contracts)=>{
+const screenshotContract = async (contracts)=>{
+    let ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
+    for(let contract of contracts) {
+        try {
+            await page.goto(contract.detailUrl, loadPageOption)
+            await page.waitForSelector(ContractImageSelector,{timeout:DefaultTimeout});
+            await page.click(ContractImageSelector)
+            await page.screenshot({path: `${downloadPath + "/" + contract.planName}/${contract.id}.png`, fullPage: true});
+        } catch (e) {
+            log.error(`contract ${contract.detailUrl} download fail!` + e.stack||e)
+        }
+    }
+}
+
+const DownloadFilePrfix = 'loanagreement_'
+
+const downloadContract = async (contracts)=>{
     let retryContracts = [],downloaded;
     const VerifyCodeSelector = "div.slide-btn"
-    const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
-    let PlanPath = downloadPath + "/" + plan.planName
-    await mkdirp(PlanPath)
 
-    const checkDownloaded = async (plan,contract)=>{
+    const checkDownloaded = async (contract)=>{
         let exist = false
-        let PlanPath = downloadPath + "/" + plan.planName
-        let contractFile = `loanagreement_${contract.id}.pdf`
+        let contractFile = `${DownloadFilePrfix}${contract.id}.pdf`
         let tmpPath = ChromeDownloadPath + "/" + contractFile
-        let dstPath = PlanPath + "/" + contractFile
+        let dstPath = downloadPath + "/" + contract.planName + "/" + contractFile
         let allPath = downloadAllPath + "/" + contractFile
         if (fs.existsSync(tmpPath)||fs.existsSync(dstPath)||fs.existsSync(allPath)) {
             exist = true
@@ -307,24 +310,27 @@ const downloadContract = async (plan,contracts)=>{
         return exist;
     }
 
-    const findMissingAndMoveDownloaded = async (plan,contracts)=>{
-        let contractFile,tmpPath,dstPath,allPath,missingContracts = [],PlanPath = downloadPath + "/" + plan.planName
+    const findMissingAndMoveDownloaded = async (contracts)=>{
+        let contractFile,tmpPath,dstPath,allPath,missingContracts = [],tmpExist,dstExist,allExist
         for(let contract of contracts){
-            contractFile = `loanagreement_${contract.id}.pdf`
+            contractFile = `${DownloadFilePrfix}${contract.id}.pdf`
             tmpPath = ChromeDownloadPath + "/" + contractFile
-            dstPath = PlanPath + "/" + contractFile
+            dstPath = downloadPath + "/" + contract.planName + "/" + contractFile
             allPath = downloadAllPath + "/" + contractFile
-            if(!fs.existsSync(dstPath)){
-                if (!fs.existsSync(tmpPath)&&!fs.existsSync(allPath)) {
+            dstExist = fs.existsSync(dstPath)
+            tmpExist = fs.existsSync(tmpPath)
+            allExist = fs.existsSync(allPath)
+            if(!dstExist){
+                if (!tmpExist&&!allExist) {
                     log.error(`maybe download fail,retry contract ${contract.id}`)
                     missingContracts.push(contract)
                 }else{
-                    if(fs.existsSync(tmpPath))
+                    if(tmpExist)
                     {
                         fs.copyFileSync(tmpPath, dstPath)
                         fs.copyFileSync(tmpPath, allPath)
                         fs.unlinkSync(tmpPath)
-                    }else if(fs.existsSync(allPath)){
+                    }else if(allExist){
                         fs.copyFileSync(allPath, dstPath)
                     }
                 }
@@ -333,61 +339,46 @@ const downloadContract = async (plan,contracts)=>{
         return missingContracts;
     }
 
-    if(DownloadPolicy=='pdf') {
-        // let downloadToken = await getDownloadToken(contracts[0].downloadUrl,'https://www.yooli.com/rest/slideVerify/verifyX')
-        for(let contract of contracts){
-            try{
-                downloaded = await checkDownloaded(plan,contract)
-                if(!downloaded){
-                    if(contract.retryTime>=DownloadRetryTime) {
-                        log.error(`contract ${contract.id} retry too many times still fail,so skip`)
-                    }else{
-                        await page.goto(contract.downloadUrl, loadPageOption)
-                        await page.waitForSelector(VerifyCodeSelector);
-                        await page.waitForSelector(VerifyCodeSelector, {hidden: true, timeout: DefaultTimeout});
-                        log.info(`contract ${contract.id} download success`)
-                    }
+
+    // let downloadToken = await getDownloadToken(contracts[0].downloadUrl,'https://www.yooli.com/rest/slideVerify/verifyX')
+    for(let contract of contracts){
+        try{
+            downloaded = await checkDownloaded(contract)
+            if(!downloaded){
+                if(contract.retryTime>=DownloadRetryTime) {
+                    log.error(`contract ${contract.id} retry too many times still fail,so skip`)
                 }else{
-                    log.info(`contract ${contract.id} already downloaded,just skip`)
+                    await page.goto(contract.downloadUrl, loadPageOption)
+                    await page.waitForSelector(VerifyCodeSelector);
+                    await page.waitForSelector(VerifyCodeSelector, {hidden: true, timeout: DefaultTimeout});
+                    log.info(`contract ${contract.id} download success`)
                 }
-            }catch(e){
-                log.warn(`contract ${contract.id} download fail,will retry:` + e.stack||e)
-            }finally {
-                if(contract.retryTime>=0){
-                    contract.retryTime +=1
-                }else{
-                    contract.retryTime = 0
-                }
+            }else{
+                log.info(`contract ${contract.id} already downloaded,just skip`)
             }
-        }
-        await sleep(DownloadRetryInterval)
-        retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
-        retryContracts = retryContracts.filter((contract)=>{
-            return contract.retryTime===undefined||contract.retryTime<DownloadRetryTime
-        })
-        if (retryContracts&&retryContracts.length) {
-            log.warn(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
-            await downloadContract(plan, retryContracts)
+        }catch(e){
+            log.warn(`contract ${contract.id} download fail,will retry:` + e.stack||e)
+        }finally {
+            if(contract.retryTime>=0){
+                contract.retryTime +=1
+            }else{
+                contract.retryTime = 0
+            }
         }
     }
-    else if(DownloadPolicy=='image'){
-        for(let contract of contracts) {
-            try {
-                await page.goto(contract.detailUrl, loadPageOption)
-                await page.waitForSelector(ContractImageSelector,{timeout:DefaultTimeout});
-                await page.click(ContractImageSelector)
-                await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
-            } catch (e) {
-                log.error(`contract ${contract.detailUrl} download fail!` + e.stack||e)
-            }
-        }
-    }else{
-        throw new Error('contract download source not support')
+    await sleep(DownloadRetryInterval)
+    retryContracts = await findMissingAndMoveDownloaded(contracts)
+    retryContracts = retryContracts.filter((contract)=>{
+        return contract.retryTime<DownloadRetryTime
+    })
+    if (retryContracts&&retryContracts.length) {
+        log.warn(`retry missing contracts:${retryContracts.map(contract=>contract.id)}`)
+        await downloadContract(retryContracts)
     }
 }
 
-const parseDownloadContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,
+const parseDownloadContract = async (contracts)=>{
+    let contractFilePath,
         result,exist,valid, checkFields = ['borrowerName','borrowerType','beginDate','assurance','contractType']
     let checkContractField = (contract)=>{
         for(let field of checkFields){
@@ -407,7 +398,6 @@ const parseDownloadContract = async (plan,contracts)=>{
     }
     for(let contract of contracts){
         delete contract['retryTime']
-        Object.assign(contract,plan)
         exist = allContracts.find((exist)=>{
             return exist.id === contract.id
         })
@@ -415,7 +405,7 @@ const parseDownloadContract = async (plan,contracts)=>{
             Object.assign(contract,exist)
         }else {
             try{
-                contractFilePath = `${PlanPath}/loanagreement_${contract.id}.pdf`
+                contractFilePath = `${downloadPath}/${contract.planName}/${DownloadFilePrfix}${contract.id}.pdf`
                 if (fs.existsSync(contractFilePath)){
                     result = await parse.parsePdf(contractFilePath)
                     Object.assign(contract,result.parsed)
@@ -432,7 +422,7 @@ const parseDownloadContract = async (plan,contracts)=>{
             }
         }
     }
-    log.info(`${contracts.length} contracts in plan ${plan.planName} crawled`)
+    log.info(`${contracts.length} contracts crawled`)
     contracts = contracts.filter((contract)=>{
         let valid = checkContractField(contract)
         if(!valid){
@@ -440,14 +430,28 @@ const parseDownloadContract = async (plan,contracts)=>{
         }
         return valid
     })
-    log.info(`${contracts.length} contracts in plan ${plan.planName} crawled and parsed`)
+    log.info(`${contracts.length} contracts crawled and parsed`)
     return contracts
 }
 
-const saveContract = async (plan,contracts)=>{
-    let PlanPath = downloadPath + "/" + plan.planName,contractFilePath,result,valid,exist
-    await mkdirp(PlanPath)
-    const writeCsv = false
+const saveAll = async ()=>{
+    if(SaveSearch){
+        try{
+            await search.batchSave(search_index_prefix + 'all' ,allContracts)
+        }catch(e){
+            log.error(`fail to save contracts to ElasticSearch:` + e.stack||e)
+        }
+    }
+    if(allContracts.length){
+        await jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
+    }
+    if(allBorrowers.length){
+        await jsonfile.writeFileSync(allBorrowerFilePath,allBorrowers, { spaces: 2 })
+    }
+}
+
+const saveContract = async (contracts)=>{
+    let writeCsv = false
     if(writeCsv){
         let header = [{id: 'name', title: '合同名称'},
             {id: 'myAmount', title: '我的待收'},
@@ -484,27 +488,23 @@ const saveContract = async (plan,contracts)=>{
             {id: 'detailUrl', title:'合同详情链接'},
             {id: 'creditUrl', title:'债转链接'}])
         const csvWriter = createCsvWriter({
-            path: PlanPath + '/contracts.csv',
+            path: downloadPath + '/contracts.csv',
             header: header
         });
         await csvWriter.writeRecords(contracts)
     }
-    await jsonfile.writeFileSync(PlanPath + '/' + allContractFileName,contracts, { spaces: 2 })
+    await jsonfile.writeFileSync(downloadPath + '/' + allContractFileName,contracts, { spaces: 2 })
     if(SaveSearch){
         try{
             await search.batchSave(search_index_prefix + currDate,contracts)
         }catch(e){
-            log.error(`fail to save all contracts in plan ${plan.planName} to ElasticSearch:` + e.stack||e)
+            log.error(`fail to save contracts to ElasticSearch:` + e.stack||e)
         }
     }
-    await jsonfile.writeFileSync(downloadAllFilePath,allContracts, { spaces: 2 })
-    if(!SkipCheatCheck){
-        await jsonfile.writeFileSync(allBorrowerFilePath,allBorrowers, { spaces: 2 })
-    }
-    log.info(`save contract in plan ${plan.planName} success`)
+    await saveAll()
 }
 
-const findCheat = async(plan,contracts)=>{
+const findCheat = async(contracts)=>{
 
     const VerifyCodeInvalid = 'code invalid'
 
@@ -687,9 +687,11 @@ const findCheat = async(plan,contracts)=>{
                 exist.cheat = cheat
                 allBorrowers.push(
                     {
+                        contract:contract.id,
                         borrowerName: contract.borrowerName,
                         borrowerType: contract.borrowerType,
                         borrowerYooliID: contract.borrowerYooliID,
+                        borrowerID:contract.borrowerID,
                         cheat: cheat
                     }
                 )
@@ -701,51 +703,87 @@ const findCheat = async(plan,contracts)=>{
     }
 }
 
+const deduplicate = (contracts)=>{
+    log.info(`${contracts.length} contracts before deduplicate`)
+    let contractObj = {},deduplicated = []
+    for(let contract of contracts){
+        contractObj[contract.id] = contract
+    }
+    for (let key in contractObj)
+        deduplicated.push(contractObj[key]);
+    log.info(`${deduplicated.length} contracts after deduplicate`)
+    return deduplicated
+}
+
+const filterPlanByName = (plans,name)=>{
+    let todos = name.split(','),find
+    plans = plans.filter((plan)=>{
+        find = false;
+        for(let todo of todos){
+            find = plan.planName.includes(todo)
+            if(find)
+                break;
+        }
+        return find;
+    })
+    return plans
+}
+
+const initPlans = async ()=>{
+    let plans = await getPlans()
+    if(PlanName){
+        plans = filterPlanByName(plans,PlanName)
+    }
+    for(let plan of plans){
+        await mkdirp(downloadPath + "/" + plan.planName)
+    }
+    return plans
+}
+
 const download = async (username,passwd)=>{
     await init()
     await login(username,passwd)
-    let plans = await getPlans(),todos,find
-    if(PlanName){
-        todos = PlanName.split(',')
-        plans = plans.filter((plan)=>{
-            find = false;
-            for(let todo of todos){
-                find = plan.planName.includes(todo)
-                if(find)
-                    break;
-            }
-            return find;
-        })
+    log.info('login finished')
+    let plans = await initPlans()
+    log.info(`init plans finished`)
+    let contracts = []
+    for(let plan of plans) {
+        let planInContract = await getContract(plan)
+        planInContract = deduplicate(planInContract)
+        contracts = contracts.concat(planInContract)
     }
-    for(let plan of plans){
-        let contracts = await getContract(plan)
-        if(!SkipDetail){
-            contracts = await getContractDetail(plan,contracts)
-            log.info(`get contract detail in plan ${plan.planName} success`)
-        }
-        if(!SkipDownload){
-            await downloadContract(plan,contracts)
-            log.info(`download contract in plan ${plan.planName} success`)
-        }
-        if(!SkipParse){
-            await parseDownloadContract(plan,contracts)
-            log.info(`parse contract in plan ${plan.planName} success`)
-        }
-        if(!SkipCheatCheck){
-            let saveFileTimer = setInterval(async () => {
-                await saveContract(plan, contracts)
-                log.info('periodical save contracts success')
-            }, 120000);
-            await findCheat(plan,contracts)
-            clearInterval(saveFileTimer)
-            log.info(`check cheat in plan ${plan.planName} success`)
-        }
-        await saveContract(plan,contracts)
+    contracts = deduplicate(contracts)
+    log.info(`init contracts finished`)
+    let saveFileTimer
+    if(!SkipCheatCheck){
+        saveFileTimer = setInterval(async () => {
+            await saveAll(contracts)
+            log.info('periodical save all contracts')
+        }, 120000);
     }
+    if(!SkipDownload){
+        await downloadContract(contracts)
+        log.info(`download contracts finished`)
+    }
+    if(!SkipParse){
+        await parseDownloadContract(contracts)
+        log.info(`parse contracts finished`)
+    }
+    if(!SkipCheatCheck){
+        await findCheat(contracts)
+        log.info(`check cheat in contracts finished`)
+    }
+    if(!SkipCheatCheck) {
+        clearInterval(saveFileTimer)
+    }
+    await saveContract(contracts)
+    log.info(`save contracts finished`)
     await browser.close()
     return currDate
 }
 
 module.exports = {download,search_index_prefix}
+
+
 
 

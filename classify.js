@@ -7,7 +7,7 @@ const jsonfile = require('jsonfile')
 const parse = require('./parse')
 const allDir = './download/all',classifiedDir = './download/classified' ,
     regex=/^loanagreement_(\d{7})\.pdf$/,StartSignDate = process.env['StartSignDate']
-let result,filepath,match,contract,contracts=[],allContracts,classified,classified_obj,exist,
+let result,filepath,match,contract,contracts=[],allContracts=[],classified,classified_obj,exist,
     assurance,srcFile,dstFile,signed_num,unsigned_num,total_num;
 
 (async () => {
