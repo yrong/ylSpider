@@ -48,6 +48,7 @@ npm install
 ```
 npm run download//下载合同
 npm run classify//合同按担保公司和是否有章分类
+npm run csv//已下载合同信息存储成csv表格
 npm run app//启动数据分析服务,启动后浏览器可访问http://localhost:8080/(需完成合同下载)
 ```
 
@@ -82,7 +83,13 @@ npm run app//启动数据分析服务,启动后浏览器可访问http://localhos
 
 * 测试程序期间.env中的PlanName配置项可配置为一个金额较小的定存宝项目编号名称（例如24-180125）,运行`npm run download`后检查download目录下是否成功生成了相关合同文件,测试没问题配置为空全量下载合同
 
-* 升级可直接下载[安装包](https://hk5.yrong.space/release.zip)后解压dist目录内的所有文件覆盖到原安装目录即可
+* 升级可直接下载[安装包](https://hk5.yrong.space/release.zip) 后
+
+    1.解压覆盖到原安装目录或直接解压到新目录下将原安装目录包含已下载合同的download子目录拷贝过来.
+    
+    2.重新配置.env文件
+    
+    3.运行`npm install`安装依赖.
 
 * 后续打开命令行窗口并启动elasticsearch可直接运行start.bat,当前窗口下再执行`npm run download`下载合同等相关命令即可 
 

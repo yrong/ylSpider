@@ -9,6 +9,7 @@
     "download": "node dist/download.js",
     "app": "node dist/app.js",
     "classify": "node dist/classify.js",
+    "csv": "node dist/csv.js",
     "fix": "node test/fix_company.js"
   },
   "keywords": [],

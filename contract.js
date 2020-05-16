@@ -287,10 +287,24 @@ const getDownloadToken = async (url,waitUrl)=>{
     }
 }
 
+const screenshotContract = async (plan,contracts)=>{
+    const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
+    let PlanPath = downloadPath + "/" + plan.planName
+    for(let contract of contracts) {
+        try {
+            await page.goto(contract.detailUrl, loadPageOption)
+            await page.waitForSelector(ContractImageSelector,{timeout:DefaultTimeout});
+            await page.click(ContractImageSelector)
+            await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
+        } catch (e) {
+            log.error(`contract ${contract.detailUrl} download fail!` + e.stack||e)
+        }
+    }
+}
+
 const downloadContract = async (plan,contracts)=>{
     let retryContracts = [],downloaded;
     const VerifyCodeSelector = "div.slide-btn"
-    const ContractImageSelector = 'img[src*=\'/viewSignature.session.action\']'
     let PlanPath = downloadPath + "/" + plan.planName
     await mkdirp(PlanPath)
 
@@ -316,7 +330,7 @@ const downloadContract = async (plan,contracts)=>{
             allPath = downloadAllPath + "/" + contractFile
             if(!fs.existsSync(dstPath)){
                 if (!fs.existsSync(tmpPath)&&!fs.existsSync(allPath)) {
-                    log.error(`maybe download fail,retry contract ${contract.id}`)
+                    log.warn(`maybe download fail,will retry contract ${contract.id}`)
                     missingContracts.push(contract)
                 }else{
                     if(fs.existsSync(tmpPath))
@@ -333,56 +347,40 @@ const downloadContract = async (plan,contracts)=>{
         return missingContracts;
     }
 
-    if(DownloadPolicy=='pdf') {
-        // let downloadToken = await getDownloadToken(contracts[0].downloadUrl,'https://www.yooli.com/rest/slideVerify/verifyX')
-        for(let contract of contracts){
-            try{
-                downloaded = await checkDownloaded(plan,contract)
-                if(!downloaded){
-                    if(contract.retryTime>=DownloadRetryTime) {
-                        log.error(`contract ${contract.id} retry too many times still fail,so skip`)
-                    }else{
-                        await page.goto(contract.downloadUrl, loadPageOption)
-                        await page.waitForSelector(VerifyCodeSelector);
-                        await page.waitForSelector(VerifyCodeSelector, {hidden: true, timeout: DefaultTimeout});
-                        log.info(`contract ${contract.id} download success`)
-                    }
+    // let downloadToken = await getDownloadToken(contracts[0].downloadUrl,'https://www.yooli.com/rest/slideVerify/verifyX')
+    for(let contract of contracts){
+        try{
+            downloaded = await checkDownloaded(plan,contract)
+            if(!downloaded){
+                if(contract.retryTime>=DownloadRetryTime) {
+                    log.error(`contract ${contract.id} retry too many times still fail,so skip`)
                 }else{
-                    log.info(`contract ${contract.id} already downloaded,just skip`)
+                    await page.goto(contract.downloadUrl, loadPageOption)
+                    await page.waitForSelector(VerifyCodeSelector);
+                    await page.waitForSelector(VerifyCodeSelector, {hidden: true, timeout: DefaultTimeout});
+                    log.info(`contract ${contract.id} downloading`)
                 }
-            }catch(e){
-                log.warn(`contract ${contract.id} download fail,will retry:` + e.stack||e)
-            }finally {
-                if(contract.retryTime>=0){
-                    contract.retryTime +=1
-                }else{
-                    contract.retryTime = 0
-                }
+            }else{
+                log.info(`contract ${contract.id} already downloaded,just skip`)
             }
-        }
-        await sleep(DownloadRetryInterval)
-        retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
-        retryContracts = retryContracts.filter((contract)=>{
-            return contract.retryTime===undefined||contract.retryTime<DownloadRetryTime
-        })
-        if (retryContracts&&retryContracts.length) {
-            log.warn(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
-            await downloadContract(plan, retryContracts)
+        }catch(e){
+            log.warn(`contract ${contract.id} download fail,will retry:` + e.stack||e)
+        }finally {
+            if(contract.retryTime>=0){
+                contract.retryTime +=1
+            }else{
+                contract.retryTime = 0
+            }
         }
     }
-    else if(DownloadPolicy=='image'){
-        for(let contract of contracts) {
-            try {
-                await page.goto(contract.detailUrl, loadPageOption)
-                await page.waitForSelector(ContractImageSelector,{timeout:DefaultTimeout});
-                await page.click(ContractImageSelector)
-                await page.screenshot({path: `${PlanPath}/${contract.id}.png`, fullPage: true});
-            } catch (e) {
-                log.error(`contract ${contract.detailUrl} download fail!` + e.stack||e)
-            }
-        }
-    }else{
-        throw new Error('contract download source not support')
+    await sleep(DownloadRetryInterval)
+    retryContracts = await findMissingAndMoveDownloaded(plan, contracts)
+    retryContracts = retryContracts.filter((contract)=>{
+        return contract.retryTime<DownloadRetryTime
+    })
+    if (retryContracts&&retryContracts.length) {
+        log.warn(`retry missing contracts:${retryContracts.map(contract=>contract.id)} in plan ${plan.planName}`)
+        await downloadContract(plan, retryContracts)
     }
 }
 
@@ -420,10 +418,12 @@ const parseDownloadContract = async (plan,contracts)=>{
                     result = await parse.parsePdf(contractFilePath)
                     Object.assign(contract,result.parsed)
                     valid = checkContractField(contract)
-                    if(valid){
-                        allContracts.push(contract)
+                    if(!valid){
+                        log.warn(`contract ${contract.id} parse success but incomplete`)
+                    }else{
+                        log.info(`contract ${contract.id} parse success`)
                     }
-                    log.info(`contract ${contract.id} parse success`)
+                    allContracts.push(contract)
                 }else {
                     log.warn(`contract ${contract.id} download fail,ignore parse`)
                 }
@@ -433,15 +433,14 @@ const parseDownloadContract = async (plan,contracts)=>{
         }
     }
     log.info(`${contracts.length} contracts in plan ${plan.planName} crawled`)
-    contracts = contracts.filter((contract)=>{
+    let filtered_contracts = contracts.filter((contract)=>{
         let valid = checkContractField(contract)
         if(!valid){
-            log.warn(`contract ${contract.id} parse success but incomplete`)
+            log.warn(`contract ${contract.id} not incomplete`)
         }
         return valid
     })
-    log.info(`${contracts.length} contracts in plan ${plan.planName} crawled and parsed`)
-    return contracts
+    log.info(`${filtered_contracts.length} contracts in plan ${plan.planName} crawled and parsed`)
 }
 
 const saveContract = async (plan,contracts)=>{

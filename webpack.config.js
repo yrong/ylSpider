@@ -1,7 +1,8 @@
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const TerserPlugin = require('terser-webpack-plugin');
-const entries = {init:'./init.js',app:'./main.js',download:'./download.js',cron_download:'./cron.js',classify:'./classify.js'}
+const entries = {init:'./init.js',app:'./main.js',download:'./download.js',
+    cron_download:'./cron.js',classify:'./classify.js',csv:'./csv.js'}
 
 const plugins = [];
 
