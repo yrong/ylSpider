@@ -1,8 +1,9 @@
 require('dotenv').config();
-const contract = require('./contract');
+const ContractDownloader = require('./contract');
 
 (async() => {
-    await contract.download()
+    let contractDownloader = new ContractDownloader()
+    await contractDownloader.download()
 })().catch((e)=>{
     console.log(e)
 })
