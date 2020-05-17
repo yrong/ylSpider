@@ -1,8 +1,9 @@
 const router = new require('koa-router')()
 const nifa = require('./nifa')
 const yooli = require('./yooli')
-const contract = require('./contract')
+const ContractDownloader = require('./contract');
 const search = require('./search')
+const SearchIndexPrefix = process.env['SearchIndexPrefix']||'yooli_contract_'
 
 router.get('/nifa', async (ctx, next) => {
     let data = await nifa.gather(ctx.request.query.refresh)
@@ -15,26 +16,22 @@ router.post('/yooli', async (ctx, next) => {
 });
 
 router.post('/contract',async (ctx,next) =>{
-    if(router.downloading){
-        throw new Error('下载中,请等候...')
-    }
-    router.downloading = true;
     let {username,passwd} = ctx.request.body
-    let url = await contract.download(username,passwd)
-    router.downloading = false;
+    let contractDownloader = new ContractDownloader(username,passwd)
+    let url = await contractDownloader.download()
     ctx.body = url
 })
 
 router.get('/contract/:index',async (ctx,next) =>{
-    let index = contract.search_index_prefix + ctx.params.index
+    let index = SearchIndexPrefix + ctx.params.index
     let data = await search.retrieve(index, {})
     ctx.body = data
 })
 
 router.get('/contract_index',async (ctx,next) =>{
-    let result = await search.cat(contract.search_index_prefix + '*')
+    let result = await search.cat(SearchIndexPrefix + '*')
     if(result&&result.length){
-        result = result.map((data)=>data.replace(contract.search_index_prefix,'')).sort().reverse()
+        result = result.map((data)=>data.replace(SearchIndexPrefix,'')).sort().reverse()
     }else{
         result = []
     }
@@ -42,7 +39,7 @@ router.get('/contract_index',async (ctx,next) =>{
 })
 
 router.get('/contract_analysis/:index',async (ctx,next) =>{
-    let index = contract.search_index_prefix + ctx.params.index
+    let index = SearchIndexPrefix + ctx.params.index
     let query = {
         "body":{
             "aggs": {

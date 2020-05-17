@@ -39,6 +39,7 @@ app.use(async function(ctx, next) {
 
 
 app.use((statics('./public')))
+app.use((statics('./download')))
 
 router.use('/api', apis.routes(), apis.allowedMethods());
 app.use(router.routes());
