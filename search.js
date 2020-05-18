@@ -1,5 +1,11 @@
 const { Client } = require('@elastic/elasticsearch')
-const client = new Client({ node: `http://${process.env['ES_HOST']||'localhost'}:9200` })
+const client = new Client({
+    node: `http://${process.env['ES_HOST'] || 'localhost'}:9200`,
+    auth: {
+        username: process.env['ES_USER'],
+        password: process.env['ES_PASSWD']
+    }
+})
 
 const init = async () => {
     await client.indices.putTemplate({

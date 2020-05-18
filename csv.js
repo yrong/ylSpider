@@ -43,6 +43,7 @@ const checkContractField = (contract)=>{
                 return exist.id === match[1]
             })
             if(exist){
+                exist.fileId = `loanagreement_${exist.id}.pdf`
                 contracts.push(exist)
             }else{
                 filepath = path.join(allDir, file);
@@ -50,6 +51,7 @@ const checkContractField = (contract)=>{
                     result = await parse.parsePdf(filepath)
                     contract = result.parsed
                     contract.id = match[1]
+                    contract.fileId = file
                     valid = checkContractField(contract)
                     if(!valid){
                         log.warn(`contract ${contract.id} missing required fields: ${JSON.stringify(contract, null, 2)}`)
@@ -64,6 +66,7 @@ const checkContractField = (contract)=>{
         }
     }
     header = header.concat([
+        {id:'fileId',title:'文件标识'},
         {id: 'beginDate', title: '合同开始日期'},
         {id: 'endDate', title: '合同结束日期'},
         {id: 'borrowNum', title: '借款金额'},

@@ -4,9 +4,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp')
-const moment = require('moment')
 const jsonfile = require('jsonfile')
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const search = require('./search')
 const parse = require('./parse')
 const log = require('simple-node-logger').createSimpleLogger('download.log')
@@ -25,6 +23,7 @@ const ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     CheckCheatMaxNum = parseInt(process.env['CheckCheatMaxNum'])||20,
     CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum'])||10,
     CheckCheatStartYear = process.env['CheckCheatStartYear']||'2015',
+    CheckCheatReValidate = process.env['CheckCheatReValidate']?(process.env['CheckCheatReValidate']=='true'):true,
     DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||1000,
     DownloadRetryTime = parseInt(process.env['DownloadRetryTime'])||5,
     DownloadBatchSize = parseInt(process.env['DownloadBatchSize'])||1000,
@@ -67,13 +66,22 @@ const filterPlanByName = (plans,plan_names)=>{
 }
 
 const deduplicate = (contracts)=>{
-    let contractObj = {},deduplicated = []
+    let contractObj = {},deduplicated = [],duplicated = [];
     for(let contract of contracts){
-        contractObj[contract.id] = contract
+        if(contractObj[contract.id]){
+            contractObj[contract.id].push(contract)
+        }else{
+            contractObj[contract.id] = []
+            contractObj[contract.id].push(contract)
+        }
     }
-    for (let key in contractObj)
-        deduplicated.push(contractObj[key]);
-    return deduplicated
+    for (let key in contractObj){
+        if(contractObj[key].length>1){
+            duplicated.push(contractObj[key])
+        }
+        deduplicated.push(contractObj[key][0]);
+    }
+    return {deduplicated,duplicated}
 }
 
 const checkContractField = (contract)=>{
@@ -512,47 +520,49 @@ module.exports = class ContractDownloader {
         return cheat;
     }
 
-    async checkCheat(contract,checkedNum) {
-        let page = this.page,elements = await page.$$('#result-block #tbody-result tr'),cheat=false;
-        for (let [_, element] of elements.entries()) {
-            const borrowerName = await element.$eval('td:nth-child(2)',ele=>ele.innerText)
-            const info = await element.$eval('td:nth-child(4)',ele=>ele.innerText)
-            if(needCheckID(contract,borrowerName,info)){
-                try{
-                    cheat = await this.checkID(contract,element)
-                }catch(err){
-                    if(err.message===CheckCheatVerifyCodeInvalid){
-                        await page.click('img#captchaImg')
-                        await page.waitForSelector('#yzm-group div.alert-danger',{visible: true});
-                        await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
-                    }else{
-                        throw err
-                    }
-                }
-                checkedNum++
-                if(cheat){
-                    break
-                }
-            }
-        }
-        return cheat
-    }
 
     async findCheatContract(contracts) {
 
-        let checkedNum = 0,allContracts = this.allContracts,existBorrower,
-            page = this.page,allBorrowers = this.allBorrowers;
+        let checkedNum = 0,existBorrower,existContract,page = this.page,
+            allBorrowers = this.allBorrowers,allContracts = this.allContracts;
+
+        const checkCheat = async (contract)=> {
+            let elements = await page.$$('#result-block #tbody-result tr'),cheat=false;
+            for (let [_, element] of elements.entries()) {
+                const borrowerName = await element.$eval('td:nth-child(2)',ele=>ele.innerText)
+                const info = await element.$eval('td:nth-child(4)',ele=>ele.innerText)
+                if(needCheckID(contract,borrowerName,info)){
+                    try{
+                        cheat = await this.checkID(contract,element)
+                    }catch(err){
+                        if(err.message===CheckCheatVerifyCodeInvalid){
+                            await page.click('img#captchaImg')
+                            await page.waitForSelector('#yzm-group div.alert-danger',{visible: true});
+                            await page.waitForSelector('#yzm-group div.alert-success',{visible: true});
+                        }else{
+                            throw err
+                        }
+                    }
+                    checkedNum++
+                    if(cheat){
+                        break
+                    }
+                }
+            }
+            return cheat
+        }
 
         for(let contract of contracts){
-            let exist = allContracts.find((exist)=>{
-                return exist.id === contract.id
-            })
-            if(exist.cheat===undefined){
+            if(contract.expired){
                 try{
                     existBorrower = findBorrower(contract,allBorrowers)
-                    if(existBorrower){
+                    existContract = allContracts.find((exist)=>{
+                        return exist.id === contract.id
+                    })
+                    existContract = existContract || contract
+                    if(existBorrower&&(existBorrower.cheat||!CheckCheatReValidate)){
                         contract.cheat = existBorrower.cheat
-                        exist.cheat = existBorrower.cheat
+                        existContract.cheat = existBorrower.cheat
                         continue
                     }
                     let cheat = false;
@@ -567,36 +577,46 @@ module.exports = class ContractDownloader {
                     let maxPageNum = await page.$eval('#page-div span#totalPage-show', element => {
                         return parseInt(element.innerText)
                     });
-                    maxPageNum = Math.min(maxPageNum,CheckCheatMaxPageNum)
                     if(maxPageNum==0){
                         cheat = false
                     }
                     else if(maxPageNum&&contract.borrowerType=='公司'){
                         cheat = true
                     }else{
-                        checkedNum = 0
-                        for (let i = 0; i < maxPageNum; i++) {
-                            cheat = await this.checkCheat(contract,checkedNum)
-                            if (cheat || i == maxPageNum - 1 || checkedNum>=CheckCheatMaxNum) {
-                                break
+                        if(maxPageNum<=CheckCheatMaxPageNum&&existBorrower){
+                            contract.cheat = existBorrower.cheat
+                            existContract.cheat = existBorrower.cheat
+                            continue
+                        } else {
+                            checkedNum = 0
+                            maxPageNum = Math.min(maxPageNum,CheckCheatMaxPageNum)
+                            for (let i = 0; i < maxPageNum; i++) {
+                                cheat = await checkCheat(contract)
+                                if (cheat || i == maxPageNum || checkedNum>=CheckCheatMaxNum) {
+                                    break
+                                }
+                                await page.waitForSelector('#next-btn')
+                                await page.click('#next-btn')
+                                await sleep(500)
                             }
-                            await page.waitForSelector('#next-btn')
-                            await page.click('#next-btn')
-                            await sleep(500)
                         }
                     }
                     contract.cheat = cheat
-                    exist.cheat = cheat
-                    allBorrowers.push(
-                        {
-                            contract:contract.id,
-                            borrowerName: contract.borrowerName,
-                            borrowerType: contract.borrowerType,
-                            borrowerYooliID: contract.borrowerYooliID,
-                            borrowerID:contract.borrowerID,
-                            cheat: cheat
-                        }
-                    )
+                    existContract.cheat = cheat
+                    if(existBorrower){
+                        existBorrower.cheat = cheat
+                    }else{
+                        allBorrowers.push(
+                            {
+                                contract:contract.id,
+                                borrowerName: contract.borrowerName,
+                                borrowerType: contract.borrowerType,
+                                borrowerYooliID: contract.borrowerYooliID,
+                                borrowerID:contract.borrowerID,
+                                cheat: cheat
+                            }
+                        )
+                    }
                     log.info(`check cheat in contract ${contract.id} success,cheat is ${cheat}`)
                 }catch(err){
                     log.error(`check cheat in contract ${contract.id} fail!` + err.stack ||err)
@@ -633,12 +653,13 @@ module.exports = class ContractDownloader {
         let contracts = [],processed_contracts = [],planInContract,deduplicated
         for(let plan of plans) {
             planInContract = await this.findContractInPlan(plan)
-            deduplicated = deduplicate(planInContract)
+            deduplicated = deduplicate(planInContract).deduplicated
             log.info(`${planInContract.length} contracts before deduplicate and ${deduplicated.length} contracts after deduplicate in plan ${plan.planName}`)
             contracts = contracts.concat(deduplicated)
         }
-        deduplicated = deduplicate(contracts)
-        log.info(`${contracts.length} contracts before deduplicate and ${deduplicated.length} contracts after deduplicate in all plans`)
+        deduplicated = deduplicate(contracts).deduplicated
+        log.info(`${contracts.length} contracts before deduplicate and ${deduplicated.length} contracts after deduplicate in all plans,duplicate contracts:
+        ${JSON.stringify(deduplicate(contracts).duplicated,null,2)}`)
         log.info(`init contracts finished`)
 
         let round = Math.ceil(contracts.length/DownloadBatchSize),
@@ -655,7 +676,14 @@ module.exports = class ContractDownloader {
                 log.info(`parse contracts from ${begin} to ${end-1} finished`)
             }
             if(!SkipCheatCheck){
+                let saveBorrowerTimer = setInterval(async () => {
+                    if(this.allBorrowers.length){
+                        await jsonfile.writeFileSync(BorrowerFilePath,this.allBorrowers, { spaces: 2 })
+                    }
+                    log.info('periodical save borrowers success')
+                }, DefaultTimeout*2);
                 await this.findCheatContract(contractsInRound)
+                clearInterval(saveBorrowerTimer)
                 log.info(`check cheat in contracts from ${begin} to ${end-1} finished`)
             }
             processed_contracts = processed_contracts.concat(contractsInRound)
