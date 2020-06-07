@@ -350,6 +350,7 @@ module.exports = class ContractDownloader {
                 break
             }
             pageSelector = `a[href='javascript:getFinancePlanLoanInvestorList(${i+1});']`
+            await page.waitForSelector(pageSelector);
             await page.click(pageSelector)
             await page.waitForSelector(ContractInfoSelector);
         }
