@@ -24,9 +24,9 @@ const ChromeDownloadPath = process.env['CHROME_DOWNLOAD_PATH'],
     CheckCheatMaxPageNum = parseInt(process.env['CheckCheatMaxPageNum'])||10,
     CheckCheatStartYear = process.env['CheckCheatStartYear']||'2015',
     CheckCheatReValidate = process.env['CheckCheatReValidate']?(process.env['CheckCheatReValidate']=='true'):true,
-    DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||1000,
+    DownloadMaxPage = parseInt(process.env['DownloadMaxPage'])||500,
     DownloadRetryTime = parseInt(process.env['DownloadRetryTime'])||5,
-    DownloadBatchSize = parseInt(process.env['DownloadBatchSize'])||1000,
+    DownloadBatchSize = parseInt(process.env['DownloadBatchSize'])||50,
     SearchIndexPrefix = process.env['SearchIndexPrefix']||'yooli_contract_',
     DownloadFilePrefix = 'loanagreement_',
     LoadPageOption = {waitUntil:'domcontentloaded'},
@@ -651,46 +651,40 @@ module.exports = class ContractDownloader {
         log.info(`login finished`)
         let plans = await this.initPlans()
         log.info(`init plans finished`)
-        let contracts = [],processed_contracts = [],planInContract,deduplicated
+        let contracts = [],processed = [],planInContract
         for(let plan of plans) {
             planInContract = await this.findContractInPlan(plan)
-            deduplicated = deduplicate(planInContract).deduplicated
-            log.info(`${planInContract.length} contracts before deduplicate and ${deduplicated.length} contracts after deduplicate in plan ${plan.planName}`)
-            contracts = contracts.concat(deduplicated)
-        }
-        deduplicated = deduplicate(contracts).deduplicated
-        log.info(`${contracts.length} contracts before deduplicate and ${deduplicated.length} contracts after deduplicate in all plans,duplicate contracts:
-        ${JSON.stringify(deduplicate(contracts).duplicated,null,2)}`)
-        log.info(`init contracts finished`)
-
-        let round = Math.ceil(contracts.length/DownloadBatchSize),
-            contractsInRound,begin=0,end=0
-        for(let i=0;i<round;i++){
-            end = Math.min(begin+DownloadBatchSize,contracts.length)
-            contractsInRound = contracts.slice(begin,end)
-            if(!SkipDownload){
-                await this.downloadContract(contractsInRound)
-                log.info(`download contracts from ${begin} to ${end-1} finished`)
+            contracts = deduplicate(planInContract).deduplicated
+            log.info(`${planInContract.length} contracts before deduplicate and ${contracts.length} contracts after deduplicate in plan ${plan.planName}`)
+            let round = Math.ceil(contracts.length/DownloadBatchSize),
+                contractsInRound,begin=0,end=0
+            for(let i=0;i<round;i++){
+                end = Math.min(begin+DownloadBatchSize,contracts.length)
+                contractsInRound = contracts.slice(begin,end)
+                if(!SkipDownload){
+                    await this.downloadContract(contractsInRound)
+                    log.info(`download contracts from ${begin} to ${end-1} in plan ${plan.planName} finished`)
+                }
+                if(!SkipParse){
+                    await this.parseContract(contractsInRound)
+                    log.info(`parse contracts from ${begin} to ${end-1} in plan ${plan.planName} finished`)
+                }
+                if(!SkipCheatCheck){
+                    let saveBorrowerTimer = setInterval(async () => {
+                        if(this.allBorrowers.length){
+                            await jsonfile.writeFileSync(BorrowerFilePath,this.allBorrowers, { spaces: 2 })
+                        }
+                        log.info('periodical save borrowers success')
+                    }, DefaultTimeout*2);
+                    await this.findCheatContract(contractsInRound)
+                    clearInterval(saveBorrowerTimer)
+                    log.info(`check cheat in contracts from ${begin} to ${end-1} in plan ${plan.planName} finished`)
+                }
+                processed = processed.concat(contractsInRound)
+                await this.saveContract(processed)
+                log.info(`save contracts from ${begin} to ${end-1} in plan ${plan.planName} finished`)
+                begin = begin + DownloadBatchSize
             }
-            if(!SkipParse){
-                await this.parseContract(contractsInRound)
-                log.info(`parse contracts from ${begin} to ${end-1} finished`)
-            }
-            if(!SkipCheatCheck){
-                let saveBorrowerTimer = setInterval(async () => {
-                    if(this.allBorrowers.length){
-                        await jsonfile.writeFileSync(BorrowerFilePath,this.allBorrowers, { spaces: 2 })
-                    }
-                    log.info('periodical save borrowers success')
-                }, DefaultTimeout*2);
-                await this.findCheatContract(contractsInRound)
-                clearInterval(saveBorrowerTimer)
-                log.info(`check cheat in contracts from ${begin} to ${end-1} finished`)
-            }
-            processed_contracts = processed_contracts.concat(contractsInRound)
-            await this.saveContract(processed_contracts)
-            log.info(`save contracts from ${begin} to ${end-1} finished`)
-            begin = begin + DownloadBatchSize
         }
         await this.browser.close()
         return this.downloadUrl + '/contracts.json'
