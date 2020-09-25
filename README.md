@@ -93,11 +93,3 @@ npm run app//启动数据分析服务,启动后浏览器可访问http://localhos
 
 * 后续打开命令行窗口并启动elasticsearch可直接运行start.bat,当前窗口下再执行`npm run download`下载合同等相关命令即可 
 
- 
-
-### 赞助
-
-> 公益性质项目,觉得好用扫码请我喝杯咖啡吧
-
-![](appreciate.jpg)
-
